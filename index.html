@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EdgeConnect SD-WAN Tunnel Estimator v4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --orange:  #FF8300;
+  --odim:    rgba(255,131,0,.15);
+  --obdr:    rgba(255,131,0,.35);
+  --bg:      #0C1520;
+  --s1:      #111E2D;
+  --s2:      #172436;
+  --s3:      #1E2F42;
+  --s4:      #253648;
+  --bdr:     #243142;
+  --bdr2:    #2E3F55;
+  --tx:      #D8E8F4;
+  --txm:     #6E8EA6;
+  --txd:     #3A5470;
+  --red:     #FF5252;
+  --redbg:   rgba(255,82,82,.10);
+  --redbdr:  rgba(255,82,82,.25);
+  --amber:   #FFB800;
+  --amberbg: rgba(255,184,0,.10);
+  --green:   #00D4A0;
+  --greenbg: rgba(0,212,160,.08);
+  --blue:    #4DB8FF;
+  --bluebg:  rgba(77,184,255,.08);
+  --purple:  #C47AFF;
+  --purplebg:rgba(196,122,255,.10);
+  --cc1: #4DB8FF;  --cc1bg: rgba(77,184,255,.15);
+  --cc2: #FF8300;  --cc2bg: rgba(255,131,0,.15);
+  --cc3: #00D4A0;  --cc3bg: rgba(0,212,160,.15);
+  --cc4: #C47AFF;  --cc4bg: rgba(196,122,255,.15);
+  --cc5: #FF5252;  --cc5bg: rgba(255,82,82,.15);
+  --cc6: #FFD600;  --cc6bg: rgba(255,214,0,.15);
+  --cc7: #00C8FF;  --cc7bg: rgba(0,200,255,.15);
+  --cc8: #FF6B9D;  --cc8bg: rgba(255,107,157,.15);
+  --cc9: #A8E063;  --cc9bg: rgba(168,224,99,.15);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.5;min-height:100vh}
+
+/* HEADER */
+.hdr{background:linear-gradient(90deg,#0A1828,#0F2035 60%,#132540);border-bottom:2px solid var(--orange);
+  padding:14px 28px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:300}
+.logo{width:44px;height:44px;background:var(--orange);border-radius:8px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:600;color:#fff;line-height:1.2;flex-shrink:0}
+.hdr h1{font-size:17px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.hdr p{font-size:11px;color:var(--txm)}
+.vpill{background:var(--s3);border:1px solid var(--bdr2);border-radius:20px;
+  padding:4px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--orange);margin-left:auto;
+  border-color:var(--obdr)}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:1fr 440px;gap:20px;max-width:1480px;margin:0 auto;padding:20px 24px;align-items:start}
+.cfg{display:flex;flex-direction:column;gap:16px}
+.res-col{position:sticky;top:78px;display:flex;flex-direction:column;gap:14px}
+
+/* CARD */
+.card{background:var(--s1);border:1px solid var(--bdr);border-radius:10px;overflow:hidden}
+.chead{background:var(--s2);border-bottom:1px solid var(--bdr);padding:11px 18px;
+  display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;transition:background .15s}
+.chead:hover{background:var(--s3)}
+.ci{font-size:15px;width:26px;text-align:center;flex-shrink:0}
+.cht{flex:1}
+.cht-title{font-size:13px;font-weight:600}
+.cht-sub{font-size:11px;color:var(--txm);margin-top:1px}
+.chev{color:var(--txd);font-size:11px;transition:transform .2s;flex-shrink:0}
+.chev.cl{transform:rotate(-90deg)}
+.cbody{padding:18px}
+.cbody.hidden{display:none}
+
+/* NOTICE */
+.notice{padding:9px 13px;border-radius:7px;font-size:11px;display:flex;gap:8px;line-height:1.7;margin-bottom:12px}
+.n-info{background:var(--bluebg);border:1px solid rgba(77,184,255,.2);color:var(--blue)}
+.n-warn{background:var(--amberbg);border:1px solid rgba(255,184,0,.2);color:var(--amber)}
+.n-danger{background:var(--redbg);border:1px solid var(--redbdr);color:var(--red)}
+.n-ok{background:var(--greenbg);border:1px solid rgba(0,212,160,.2);color:var(--green)}
+.ni{flex-shrink:0;margin-top:1px}
+
+/* FORM BASICS */
+.fl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--txm);margin-bottom:4px;display:block}
+input[type=number],input[type=text],select{
+  background:var(--s3);border:1px solid var(--bdr2);border-radius:6px;
+  padding:7px 10px;color:var(--tx);font-family:'IBM Plex Mono',monospace;
+  font-size:12px;width:100%;transition:border-color .15s}
+input:focus,select:focus{outline:none;border-color:var(--orange)}
+select option{background:var(--s2)}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+.helper{font-size:10px;color:var(--txd);margin-top:3px}
+
+/* COUNTER */
+.ctr{display:flex;align-items:center}
+.cbtn{width:30px;height:34px;background:var(--s3);border:1px solid var(--bdr2);color:var(--txm);
+  font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cbtn:first-child{border-radius:6px 0 0 6px;border-right:none}
+.cbtn:last-child{border-radius:0 6px 6px 0;border-left:none}
+.cbtn:hover{background:var(--orange);color:#fff;border-color:var(--orange)}
+.ctr input{border-radius:0;text-align:center;width:60px}
+
+/* TOGGLE */
+.tog{position:relative;width:38px;height:21px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0}
+.tsl{position:absolute;inset:0;background:var(--s4);border:1px solid var(--bdr2);border-radius:11px;cursor:pointer;transition:all .2s}
+.tsl::before{content:'';position:absolute;width:15px;height:15px;left:2px;top:2px;background:var(--txd);border-radius:50%;transition:all .2s}
+.tog input:checked+.tsl{background:var(--orange);border-color:var(--orange)}
+.tog input:checked+.tsl::before{transform:translateX(17px);background:#fff}
+
+/* SECTION LABEL */
+.slbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txd);
+  margin:16px 0 10px;display:flex;align-items:center;gap:8px}
+.slbl::after{content:'';flex:1;height:1px;background:var(--bdr)}
+.slbl:first-child{margin-top:0}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 16px;border-radius:6px;font-family:'IBM Plex Sans',sans-serif;
+  font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-pri{background:var(--orange);color:#fff}
+.btn-pri:hover{background:#d96e00}
+.btn-ghost{background:var(--s3);color:var(--txm);border:1px solid var(--bdr2)}
+.btn-ghost:hover{color:var(--tx)}
+.btn-add{background:var(--odim);color:var(--orange);border:1px dashed var(--obdr);width:100%;margin-top:10px}
+.btn-add:hover{background:rgba(255,131,0,.22)}
+.btn-del{background:var(--redbg);color:var(--red);border:1px solid var(--redbdr);
+  padding:4px 9px;font-size:11px;border-radius:5px;cursor:pointer;font-family:'IBM Plex Sans',monospace;transition:all .15s}
+.btn-del:hover{background:rgba(255,82,82,.2)}
+.btn-del:disabled{opacity:.3;cursor:not-allowed}
+
+/* CHIPS */
+.chip-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px 3px 7px;border-radius:20px;
+  font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;cursor:pointer;user-select:none;
+  transition:all .15s;border:1px solid transparent;background:var(--s4);color:var(--txm);border-color:var(--bdr2)}
+.chip:hover{color:var(--tx)}
+.chip.on{color:#fff}
+.chip .cc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.chip.cc-none.on{background:var(--s3);border-color:var(--bdr2);color:var(--tx)}
+.chip.cc-none .cc-dot{background:var(--txm)}
+.chip.cc-1.on{background:var(--cc1bg);border-color:var(--cc1);color:var(--cc1)}
+.chip.cc-1 .cc-dot{background:var(--cc1)}
+.chip.cc-2.on{background:var(--cc2bg);border-color:var(--cc2);color:var(--cc2)}
+.chip.cc-2 .cc-dot{background:var(--cc2)}
+.chip.cc-3.on{background:var(--cc3bg);border-color:var(--cc3);color:var(--cc3)}
+.chip.cc-3 .cc-dot{background:var(--cc3)}
+.chip.cc-4.on{background:var(--cc4bg);border-color:var(--cc4);color:var(--cc4)}
+.chip.cc-4 .cc-dot{background:var(--cc4)}
+.chip.cc-5.on{background:var(--cc5bg);border-color:var(--cc5);color:var(--cc5)}
+.chip.cc-5 .cc-dot{background:var(--cc5)}
+.chip.cc-6.on{background:var(--cc6bg);border-color:var(--cc6);color:var(--cc6)}
+.chip.cc-6 .cc-dot{background:var(--cc6)}
+.chip.cc-7.on{background:var(--cc7bg);border-color:var(--cc7);color:var(--cc7)}
+.chip.cc-7 .cc-dot{background:var(--cc7)}
+.chip.cc-8.on{background:var(--cc8bg);border-color:var(--cc8);color:var(--cc8)}
+.chip.cc-8 .cc-dot{background:var(--cc8)}
+.chip.cc-9.on{background:var(--cc9bg);border-color:var(--cc9);color:var(--cc9)}
+.chip.cc-9 .cc-dot{background:var(--cc9)}
+.chip .topo-tag{font-size:8px;opacity:.6;margin-left:2px}
+
+.cc-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cc-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txm)}
+.cc-swatch{width:8px;height:8px;border-radius:50%}
+
+/* GROUP ROWS */
+.grp-row{background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:13px 14px;margin-bottom:8px}
+.grp-row:last-of-type{margin-bottom:0}
+.grp-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.grp-name{flex:1;min-width:0}
+.grp-name input{font-size:12px;padding:6px 9px}
+.grp-count-wrap{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.grp-count-wrap .fl{font-size:9px}
+.grp-ha{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+.grp-ha .fl{font-size:9px}
+.grp-del{flex-shrink:0;align-self:flex-start}
+.grp-labels-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--txd)}
+.grp-all-btn{font-size:10px;color:var(--txd);background:none;border:none;cursor:pointer;padding:1px 4px;
+  border-radius:3px;margin-left:4px;transition:color .15s}
+.grp-all-btn:hover{color:var(--txm)}
+
+/* BIO ROWS */
+.bio-row{background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.bio-row:last-of-type{margin-bottom:0}
+.bio-top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.bio-name{flex:1}
+.bio-name input{font-size:12px;padding:6px 9px}
+.bio-topo select{width:140px;font-size:12px;padding:6px 8px}
+.bio-scope{font-size:10px;color:var(--txd);margin-top:4px;font-style:italic}
+
+/* =================== RESULTS =================== */
+.res-card{background:var(--s1);border:1px solid var(--bdr);border-radius:10px;overflow:hidden}
+.res-head{background:var(--s2);border-bottom:1px solid var(--bdr);padding:12px 18px;display:flex;align-items:center;gap:8px}
+.res-head-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--txm)}
+
+.dev-block{padding:14px 18px;border-bottom:1px solid var(--bdr)}
+.dev-block:last-child{border-bottom:none}
+.dev-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.dev-name{font-size:13px;font-weight:600}
+.dev-sub{font-size:10px;color:var(--txm);margin-top:2px}
+.tnum{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;line-height:1;text-align:right}
+.tnum.ok{color:var(--green)}
+.tnum.warn{color:var(--amber)}
+.tnum.bad{color:var(--red)}
+.tnum-sub{font-size:10px;color:var(--txd);text-align:right}
+
+/* Type breakdown mini bars */
+.type-bars{margin:8px 0 10px;display:flex;flex-direction:column;gap:4px}
+.tbr{display:flex;align-items:center;gap:7px}
+.tbr-lbl{width:82px;font-size:10px;color:var(--txm);flex-shrink:0;display:flex;align-items:center;gap:4px}
+.tbr-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tbr-track{flex:1;height:5px;background:var(--s4);border-radius:3px;overflow:hidden}
+.tbr-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.tbr-val{width:36px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;flex-shrink:0;color:var(--txm)}
+.tbr-zero{opacity:.35}
+
+.capbar{height:5px;background:var(--s4);border-radius:3px;margin-bottom:5px;overflow:hidden}
+.capfill{height:100%;border-radius:3px;transition:width .5s;background:var(--green)}
+.capfill.warn{background:var(--amber)}
+.capfill.bad{background:var(--red)}
+.cap-txt{font-size:10px;color:var(--txm);margin-bottom:8px}
+
+/* Breakdown details */
+details.bkd summary{font-size:10px;color:var(--txd);cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:4px;user-select:none;padding:4px 0}
+details.bkd summary::before{content:'▶';font-size:8px;transition:transform .15s}
+details.bkd[open] summary::before{transform:rotate(90deg)}
+.bk-section{margin-top:8px}
+.bk-section-head{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  padding:5px 0 3px;display:flex;align-items:center;gap:6px;color:var(--txd);border-bottom:1px solid var(--bdr);margin-bottom:4px}
+.bk-table{width:100%;border-collapse:collapse;font-size:11px}
+.bk-table td{padding:2px 0;color:var(--txm);vertical-align:top}
+.bk-table td:last-child{text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--tx);padding-left:8px;white-space:nowrap}
+.bk-table .bk-peer{font-size:10px;color:var(--txd);padding-left:8px}
+.bk-table .bk-total td{border-top:1px solid var(--bdr);padding-top:5px;color:var(--orange);font-weight:600}
+.bk-table .bk-total td:last-child{color:var(--orange)}
+.bk-note{font-size:9px;color:var(--txd);display:block;margin-top:1px}
+
+/* Ref table */
+.ref-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.ref-tbl th{padding:7px 12px;text-align:left;background:var(--s3);border-bottom:1px solid var(--bdr);
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txd)}
+.ref-tbl td{padding:7px 12px;border-bottom:1px solid var(--bdr)}
+.ref-tbl tr:last-child td{border-bottom:none}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
+
+/* WAN Label table */
+.wl-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.wl-tbl th{padding:6px 8px;text-align:left;background:var(--s3);border-bottom:1px solid var(--bdr);
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txd)}
+.wl-tbl td{padding:5px 6px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.wl-tbl tr:last-child td{border-bottom:none}
+.wl-tbl input,.wl-tbl select{padding:5px 7px;font-size:11px}
+
+/* Flex helpers */
+.r{display:flex;align-items:center;gap:8px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.col{display:flex;flex-direction:column;gap:4px}
+.exp-row{display:flex;gap:10px}
+.exp-row .btn{flex:1}
+.tog-row{display:flex;align-items:center;justify-content:space-between;background:var(--s3);
+  border:1px solid var(--bdr2);border-radius:7px;padding:8px 12px;gap:12px}
+.tog-row-label{font-size:12px;font-weight:500}
+.tog-row-sub{font-size:10px;color:var(--txm);margin-top:1px}
+
+/* Tip */
+.tip{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;
+  background:var(--s4);border:1px solid var(--bdr2);border-radius:50%;font-size:8px;
+  color:var(--txd);cursor:help;position:relative;vertical-align:middle;margin-left:3px}
+.tip:hover::after{content:attr(data-t);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);
+  background:var(--s2);border:1px solid var(--bdr2);border-radius:6px;padding:5px 9px;
+  font-size:10px;color:var(--txm);z-index:500;pointer-events:none;width:240px;white-space:normal;text-align:left}
+
+/* inline label tags in results */
+.lbl-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:10px;
+  font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;
+  background:var(--s4);border:1px solid var(--bdr2);color:var(--txm);margin:1px 2px 1px 0}
+.lbl-tags{display:flex;flex-wrap:wrap;gap:2px;margin-top:3px}
+
+/* HA mode selector */
+.ha-mode-row{display:flex;gap:4px;flex-wrap:wrap}
+.ha-mode-btn{padding:5px 11px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;
+  background:var(--s4);border:1px solid var(--bdr2);color:var(--txm);
+  font-family:'IBM Plex Sans',sans-serif;transition:all .15s}
+.ha-mode-btn:hover{color:var(--tx);border-color:var(--bdr2)}
+.ha-mode-btn.ha-mode-on{background:var(--odim);border-color:var(--obdr);color:var(--orange);font-weight:600}
+
+@media(max-width:1100px){.layout{grid-template-columns:1fr}.res-col{position:static}}
+@media(max-width:600px){.layout{padding:12px}.hdr{padding:10px 16px}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="logo">EC<br>SE</div>
+  <div>
+    <h1>EdgeConnect SD-WAN Tunnel Estimator</h1>
+    <p>HPE Aruba Networking — Underlay · Overlay · Passthrough</p>
+  </div>
+  <div class="vpill">v4.3</div>
+</header>
+
+<div class="layout">
+<!-- ==================== LEFT CONFIG ==================== -->
+<div class="cfg">
+
+  <!-- WAN LABELS -->
+  <div class="card">
+    <div class="chead" onclick="tog('wl')">
+      <div class="ci">🔗</div>
+      <div class="cht"><div class="cht-title">WAN Labels</div><div class="cht-sub">Transport labels with CC group assignment and overlay topology scope</div></div>
+      <span class="chev" id="wl-chev">▼</span>
+    </div>
+    <div class="cbody" id="wl-body">
+      <div class="notice n-info">
+        <span class="ni">ℹ</span>
+        <div>
+          <strong>Overlay Topology</strong> — <em>Any</em>: label can form hub↔hub, hub↔spoke, and spoke↔spoke tunnels. <em>Hub-Spoke Only</em>: label is excluded from spoke↔spoke (underlay + overlay). Typical for MPLS that doesn't reach branch sites.<br>
+          <strong>Cross-Connect Group</strong> — Labels in the same CC group form a full N×M underlay matrix between endpoints (INET1↔INET1, INET1↔INET2, INET2↔INET1, etc). Labels in <em>None</em> only match their exact counterpart.
+        </div>
+      </div>
+      <div class="cc-legend">
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--txm)"></div>No CC group (1:1 match)</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc1)"></div>Group 1</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc2)"></div>Group 2</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc3)"></div>Group 3</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc4)"></div>Group 4</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc5)"></div>Group 5</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc6)"></div>Group 6</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc7)"></div>Group 7</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc8)"></div>Group 8</div>
+        <div class="cc-legend-item"><div class="cc-swatch" style="background:var(--cc9)"></div>Group 9</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="wl-tbl">
+          <thead><tr>
+            <th>Label Name</th>
+            <th>Overlay Topology</th>
+            <th>CC Group <span class="tip" data-t="Labels in the same CC group cross-connect with each other. INET1+INET2 in Group 1 → INET1↔INET1, INET1↔INET2, INET2↔INET1, INET2↔INET2 per peer pair.">?</span></th>
+            <th></th>
+          </tr></thead>
+          <tbody id="wlt-body"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-add" onclick="addLabel()">+ Add WAN Label</button>
+    </div>
+  </div>
+
+  <!-- HUB GROUPS -->
+  <div class="card">
+    <div class="chead" onclick="tog('hg')">
+      <div class="ci">🏢</div>
+      <div class="cht"><div class="cht-title">Hub Gateway Groups</div><div class="cht-sub">Define hub tiers with their WAN label assignments</div></div>
+      <span class="chev" id="hg-chev">▼</span>
+    </div>
+    <div class="cbody" id="hg-body">
+      <div class="notice n-info">
+        <span class="ni">ℹ</span>
+        <div>Hub groups peer with ALL other hub groups using all applicable labels (hub↔hub uses <em>every</em> label type, not just Any-topology). Hub-Spoke BIO labels also form hub↔hub tunnels.</div>
+      </div>
+      <div id="hg-rows"></div>
+      <button class="btn btn-add" onclick="addHubGroup()">+ Add Hub Group</button>
+    </div>
+  </div>
+
+  <!-- SPOKE GROUPS -->
+  <div class="card">
+    <div class="chead" onclick="tog('sg')">
+      <div class="ci">📡</div>
+      <div class="cht"><div class="cht-title">Spoke Gateway Groups</div><div class="cht-sub">Define spoke populations with individual WAN label sets</div></div>
+      <span class="chev" id="sg-chev">▼</span>
+    </div>
+    <div class="cbody" id="sg-body">
+      <div class="notice n-info">
+        <span class="ni">ℹ</span>
+        <div>Create a group per unique label combination. Spokes connect to all hub groups. Spoke↔Spoke tunnels only form for <em>Mesh</em> BIOs over <em>Any</em>-topology labels.</div>
+      </div>
+      <div id="sg-rows"></div>
+      <button class="btn btn-add" onclick="addSpokeGroup()">+ Add Spoke Group</button>
+    </div>
+  </div>
+
+  <!-- BIOS -->
+  <div class="card">
+    <div class="chead" onclick="tog('bio')">
+      <div class="ci">📐</div>
+      <div class="cht"><div class="cht-title">Business Intent Overlays (BIOs)</div><div class="cht-sub">Per-overlay topology and label participation — max 7 total</div></div>
+      <span class="chev" id="bio-chev">▼</span>
+    </div>
+    <div class="cbody" id="bio-body">
+      <div class="notice n-info">
+        <span class="ni">ℹ</span>
+        <div>Each BIO creates one overlay tunnel per peer relationship where both sides have at least one matching label. <strong>Hub-Spoke</strong>: hub↔spoke + hub↔hub. <strong>Mesh</strong>: additionally spoke↔spoke (Any-topo labels only). Passthrough tunnels = all device labels × total BIO count.</div>
+      </div>
+      <div id="bio-count-notice"></div>
+      <div id="bio-rows"></div>
+      <button class="btn btn-add" onclick="addBio()">+ Add Overlay</button>
+    </div>
+  </div>
+
+  <!-- OPTIONS -->
+  <div class="card">
+    <div class="chead" onclick="tog('opt')">
+      <div class="ci">⚙️</div>
+      <div class="cht"><div class="cht-title">Additional Options</div><div class="cht-sub">SSE / Security Service Edge passthrough tunnels</div></div>
+      <span class="chev" id="opt-chev">▼</span>
+    </div>
+    <div class="cbody" id="opt-body">
+      <div class="slbl">SSE / Security Service Edge</div>
+      <div class="col" style="max-width:200px">
+        <label class="fl">SSE Service Pairs <span class="tip" data-t="Each SSE pair adds 2 passthrough tunnels per WAN label (primary PoP + backup PoP). Applied per device across all groups.">?</span></label>
+        <div class="ctr">
+          <button class="cbtn" onclick="step('sse',-1)">−</button>
+          <input type="number" id="sse" value="0" min="0" onchange="calc()">
+          <button class="cbtn" onclick="step('sse',1)">+</button>
+        </div>
+        <div class="helper">2 tunnels × WAN labels × SSE pairs per device</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /cfg -->
+
+<!-- ==================== RIGHT RESULTS ==================== -->
+<div class="res-col">
+
+  <div class="res-card">
+    <div class="res-head">
+      <span style="font-size:16px">📊</span>
+      <span class="res-head-title">Tunnel Estimates</span>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txm)">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--blue)"></div>Underlay
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txm)">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--orange)"></div>Overlay
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txm)">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green)"></div>Passthrough
+        </div>
+      </div>
+    </div>
+    <div id="res-body"><div style="padding:24px;text-align:center;color:var(--txd)">Configure groups above…</div></div>
+  </div>
+
+  <div class="res-card">
+    <div class="res-head"><span style="font-size:14px">📋</span><span class="res-head-title">Tunnel Type Formulas</span></div>
+    <div style="padding:13px 18px;font-size:10px;color:var(--txm);line-height:2.1">
+      <div style="color:var(--blue);font-weight:600;margin-bottom:2px">🔵 Underlay (per peer pair)</div>
+      <div style="padding-left:12px;margin-bottom:6px">CC group N×M + exact-match for cc=none labels. Hub↔Spoke + Hub↔Hub: all labels. Spoke↔Spoke: Any-topo labels only. Gated by BIO label union — only forms when at least one overlay would use the labels.</div>
+      <div style="color:var(--orange);font-weight:600;margin-bottom:2px">🟠 Overlay (per peer pair)</div>
+      <div style="padding-left:12px;margin-bottom:6px">1 per applicable BIO. Hub-Spoke BIOs: hub↔spoke + hub↔hub. Mesh BIOs: additionally spoke↔spoke. BIO must have ≥1 matching label on both sides to form.</div>
+      <div style="color:var(--green);font-weight:600;margin-bottom:2px">🟢 Passthrough (local, per device)</div>
+      <div style="padding-left:12px">Interface anchor (1 per WAN label) + BIO×Label (label_count × BIO_count). LAN-side passthroughs excluded (site-specific). SSE adds 2×labels×pairs.</div>
+    </div>
+  </div>
+
+  <div class="res-card">
+    <div class="res-head"><span style="font-size:14px">📟</span><span class="res-head-title">Device Capacity Reference</span></div>
+    <div style="overflow:hidden">
+      <table class="ref-tbl">
+        <thead><tr><th>Model</th><th>Role</th><th>Max Tunnels</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">EC-US</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">2,000</td></tr>
+          <tr><td class="mono">EC-XS (9.2+)</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
+          <tr><td class="mono">EC-S-P</td><td style="color:var(--txm)">Large Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
+          <tr><td class="mono">EC-M-H</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
+          <tr><td class="mono">EC-L-H</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
+          <tr><td class="mono">EC-XL-H</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="exp-row">
+    <button class="btn btn-pri" onclick="exportXLSX()">📥 Export XLSX</button>
+    <button class="btn btn-ghost" onclick="resetAll()">↺ Reset</button>
+  </div>
+  <div style="font-size:10px;color:var(--txd);text-align:center">Estimation only — actual counts vary by site configuration. LAN-side passthroughs and physical WAN interface anchors excluded.</div>
+
+</div><!-- /res-col -->
+</div><!-- /layout -->
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const S = {
+  labels: [
+    {id:1, name:'INET1', topo:'any', cc:'1'},
+    {id:2, name:'INET2', topo:'any', cc:'1'},
+    {id:3, name:'MPLS',  topo:'any', cc:'none'},
+    {id:4, name:'LTE',   topo:'any', cc:'none'},
+  ],
+  hubGroups: [
+    {id:1, name:'DC Hubs', sites:2, labelIds:[1,2,3], haMode:'single'},
+  ],
+  spokeGroups: [
+    {id:2, name:'INET + LTE Spokes',  sites:30, labelIds:[1,2,4], haMode:'single'},
+    {id:3, name:'INET + MPLS Spokes', sites:20, labelIds:[1,2,3], haMode:'single'},
+  ],
+  bios: [
+    {id:4, name:'Business',     topo:'hs',   labelIds:[1,2,3]},
+    {id:5, name:'Guest',        topo:'hs',   labelIds:[1,2,4]},
+    {id:6, name:'RealTime',     topo:'mesh', labelIds:[1,2,3]},
+  ],
+  sse: 0,
+  nextId: 20,
+};
+
+// ============================================================
+//  CARD TOGGLE
+// ============================================================
+function tog(id) {
+  const b = document.getElementById(id+'-body');
+  const c = document.getElementById(id+'-chev');
+  b.classList.toggle('hidden');
+  c.className = 'chev'+(b.classList.contains('hidden')?' cl':'');
+}
+
+function step(id, d) {
+  const el = document.getElementById(id);
+  el.value = Math.max(0, (parseInt(el.value)||0)+d);
+  calc();
+}
+function gv(id) { return parseInt(document.getElementById(id).value)||0; }
+
+// ============================================================
+//  LABEL CHIP HTML
+// ============================================================
+function chipHtml(labelId, activeIds, clickFn) {
+  const lbl = S.labels.find(l=>l.id===labelId);
+  if(!lbl) return '';
+  const on = activeIds.includes(labelId);
+  const cc = lbl.cc || 'none';
+  const tTag = lbl.topo === 'hs' ? '<span class="topo-tag">HS</span>' : '';
+  return `<span class="chip cc-${cc}${on?' on':''}" onclick="${clickFn}(${labelId})" title="${lbl.name} [${lbl.topo==='any'?'Any':'Hub-Spoke Only'}] CC:${cc}">
+    <span class="cc-dot"></span>${lbl.name}${tTag}</span>`;
+}
+
+// ============================================================
+//  RENDER WAN LABELS
+// ============================================================
+function renderLabels() {
+  const tb = document.getElementById('wlt-body');
+  tb.innerHTML = '';
+  S.labels.forEach(l => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" value="${l.name}" style="width:80px" onchange="updL(${l.id},'name',this.value)"></td>
+      <td>
+        <select style="width:150px" onchange="updL(${l.id},'topo',this.value)">
+          <option value="any" ${l.topo==='any'?'selected':''}>Any (Full Mesh)</option>
+          <option value="hs"  ${l.topo==='hs' ?'selected':''}>Hub-Spoke Only</option>
+        </select>
+      </td>
+      <td>
+        <select style="width:110px" onchange="updL(${l.id},'cc',this.value)">
+          <option value="none" ${l.cc==='none'?'selected':''}>None (exact)</option>
+          <option value="1"    ${l.cc==='1'   ?'selected':''}>Group 1</option>
+          <option value="2"    ${l.cc==='2'   ?'selected':''}>Group 2</option>
+          <option value="3"    ${l.cc==='3'   ?'selected':''}>Group 3</option>
+          <option value="4"    ${l.cc==='4'   ?'selected':''}>Group 4</option>
+          <option value="5"    ${l.cc==='5'   ?'selected':''}>Group 5</option>
+          <option value="6"    ${l.cc==='6'   ?'selected':''}>Group 6</option>
+          <option value="7"    ${l.cc==='7'   ?'selected':''}>Group 7</option>
+          <option value="8"    ${l.cc==='8'   ?'selected':''}>Group 8</option>
+          <option value="9"    ${l.cc==='9'   ?'selected':''}>Group 9</option>
+        </select>
+      </td>
+      <td><button class="btn-del" onclick="delL(${l.id})" ${S.labels.length<=1?'disabled':''}>✕</button></td>
+    `;
+    tb.appendChild(tr);
+  });
+  renderHubGroups();
+  renderSpokeGroups();
+  renderBios();
+  calc();
+}
+function updL(id,f,v){const l=S.labels.find(x=>x.id===id);if(l){l[f]=v;renderLabels();}}
+function addLabel(){
+  S.labels.push({id:S.nextId++,name:'LABEL',topo:'any',cc:'none'});
+  renderLabels();
+}
+function delL(id){
+  if(S.labels.length<=1)return;
+  S.labels=S.labels.filter(x=>x.id!==id);
+  [...S.hubGroups,...S.spokeGroups].forEach(g=>g.labelIds=g.labelIds.filter(x=>x!==id));
+  S.bios.forEach(b=>b.labelIds=b.labelIds.filter(x=>x!==id));
+  renderLabels();
+}
+
+// ============================================================
+//  RENDER HUB GROUPS
+// ============================================================
+function hgAppliances(hg) {
+  return hg.haMode === 'single' ? hg.sites : hg.sites * 2;
+}
+
+function renderHubGroups() {
+  const cont = document.getElementById('hg-rows');
+  cont.innerHTML = '';
+  S.hubGroups.forEach(hg => {
+    const appl = hgAppliances(hg);
+    const haNote = hg.haMode === 'single'
+      ? `${hg.sites} site${hg.sites!==1?'s':''} · ${appl} appliance${appl!==1?'s':''}`
+      : hg.haMode === 'traditional'
+        ? `${hg.sites} site${hg.sites!==1?'s':''} · ${appl} appliances · independent WAN interfaces`
+        : `${hg.sites} site${hg.sites!==1?'s':''} · ${appl} appliances · shared labels via HA backplane`;
+
+    const modeButtons = HA_MODES.map(m =>
+      `<button class="ha-mode-btn${hg.haMode===m.val?' ha-mode-on':''}"
+         onclick="updHG(${hg.id},'haMode','${m.val}')">${m.label}</button>`
+    ).join('');
+
+    const div = document.createElement('div');
+    div.className = 'grp-row';
+    div.innerHTML = `
+      <div class="grp-top">
+        <div class="grp-name col">
+          <label class="fl">Group Name</label>
+          <input type="text" value="${hg.name}" onchange="updHG(${hg.id},'name',this.value)">
+        </div>
+        <div class="grp-count-wrap col">
+          <label class="fl">Sites</label>
+          <div class="ctr">
+            <button class="cbtn" onclick="stepHG(${hg.id},-1)">−</button>
+            <input type="number" id="hgc_${hg.id}" value="${hg.sites}" min="1"
+              style="width:56px" onchange="updHG(${hg.id},'sites',+this.value)">
+            <button class="cbtn" onclick="stepHG(${hg.id},1)">+</button>
+          </div>
+        </div>
+        <div class="grp-del">
+          <button class="btn-del" onclick="delHG(${hg.id})" ${S.hubGroups.length<=1?'disabled':''}>✕</button>
+        </div>
+      </div>
+      <div class="col" style="margin-bottom:10px">
+        <label class="fl">HA Mode</label>
+        <div class="ha-mode-row">${modeButtons}</div>
+        <div style="margin-top:5px;font-size:11px;color:var(--tx)">${haNote}</div>
+      </div>
+      <div>
+        <div class="r" style="gap:6px">
+          <span class="grp-labels-label">WAN Labels</span>
+          <button class="grp-all-btn" onclick="toggleAllHG(${hg.id},true)">All</button>
+          <button class="grp-all-btn" onclick="toggleAllHG(${hg.id},false)">None</button>
+        </div>
+        <div class="chip-row" id="hg-chips-${hg.id}">
+          ${S.labels.map(l=>chipHtml(l.id, hg.labelIds, `toggleHGLabel_${hg.id}`)).join('')}
+        </div>
+      </div>
+    `;
+    cont.appendChild(div);
+    window[`toggleHGLabel_${hg.id}`] = (lid) => { toggleHGLabel(hg.id, lid); };
+  });
+}
+function updHG(id,f,v){const g=S.hubGroups.find(x=>x.id===id);if(g){g[f]=v;if(f!=='name'){renderHubGroups();calc();}}}
+function stepHG(id,d){
+  const g=S.hubGroups.find(x=>x.id===id);if(!g)return;
+  g.sites=Math.max(1,g.sites+d);
+  document.getElementById('hgc_'+id).value=g.sites;
+  renderHubGroups(); calc();
+}
+function addHubGroup(){
+  S.hubGroups.push({id:S.nextId++,name:'Hub Group',sites:1,labelIds:S.labels.map(l=>l.id),haMode:'single'});
+  renderHubGroups(); calc();
+}
+function delHG(id){
+  if(S.hubGroups.length<=1)return;
+  S.hubGroups=S.hubGroups.filter(x=>x.id!==id);
+  renderHubGroups(); calc();
+}
+function toggleHGLabel(gid,lid){
+  const g=S.hubGroups.find(x=>x.id===gid);if(!g)return;
+  const i=g.labelIds.indexOf(lid);
+  if(i>=0)g.labelIds.splice(i,1); else g.labelIds.push(lid);
+  renderHubGroups(); calc();
+}
+function toggleAllHG(gid,on){
+  const g=S.hubGroups.find(x=>x.id===gid);if(!g)return;
+  g.labelIds=on?S.labels.map(l=>l.id):[];
+  renderHubGroups(); calc();
+}
+
+// ============================================================
+//  RENDER SPOKE GROUPS
+// ============================================================
+//
+//  HA mode drives two things:
+//    appliances per site  →  1 (single) | 2 (traditional/edgeha)
+//    spoke↔spoke peers   →  (remote_sites × appl_per_site)
+//                            but same-site appliances NEVER peer,
+//                            so peers = (remote_sites × appl_per_site)
+//
+//  Traditional HA: each appliance has independent WAN interfaces
+//    (usually via external switch). No HA-link tunnel overhead.
+//  EdgeHA: appliances share labels via HA backplane. Adds HA-link
+//    tunnels ≈ ceil(labelCount/2) per appliance.
+// ============================================================
+const HA_MODES = [
+  {val:'single',      label:'Single Appliance', short:'1×'},
+  {val:'traditional', label:'Traditional HA',   short:'2×'},
+  {val:'edgeha',      label:'EdgeHA',            short:'2×+HA'},
+];
+
+function sgAppliances(sg) {
+  return sg.haMode === 'single' ? sg.sites : sg.sites * 2;
+}
+
+function renderSpokeGroups() {
+  const cont = document.getElementById('sg-rows');
+  cont.innerHTML = '';
+  S.spokeGroups.forEach(sg => {
+    const appl = sgAppliances(sg);
+    const haNote = sg.haMode === 'single'
+      ? `${sg.sites} site${sg.sites!==1?'s':''} · ${appl} appliance${appl!==1?'s':''}`
+      : sg.haMode === 'traditional'
+        ? `${sg.sites} site${sg.sites!==1?'s':''} · ${appl} appliances · independent WAN interfaces`
+        : `${sg.sites} site${sg.sites!==1?'s':''} · ${appl} appliances · shared labels via HA backplane`;
+
+    const modeButtons = HA_MODES.map(m =>
+      `<button class="ha-mode-btn${sg.haMode===m.val?' ha-mode-on':''}"
+         onclick="updSG(${sg.id},'haMode','${m.val}')"
+         title="${m.label}">${m.label}</button>`
+    ).join('');
+
+    div = document.createElement('div');
+    div.className = 'grp-row';
+    div.innerHTML = `
+      <div class="grp-top">
+        <div class="grp-name col">
+          <label class="fl">Group Name</label>
+          <input type="text" value="${sg.name}" onchange="updSG(${sg.id},'name',this.value)">
+        </div>
+        <div class="grp-count-wrap col">
+          <label class="fl">Sites</label>
+          <div class="ctr">
+            <button class="cbtn" onclick="stepSG(${sg.id},-1)">−</button>
+            <input type="number" id="sgc_${sg.id}" value="${sg.sites}" min="0"
+              style="width:56px" onchange="updSG(${sg.id},'sites',+this.value)">
+            <button class="cbtn" onclick="stepSG(${sg.id},1)">+</button>
+          </div>
+        </div>
+        <div class="grp-del">
+          <button class="btn-del" onclick="delSG(${sg.id})" ${S.spokeGroups.length<=1?'disabled':''}>✕</button>
+        </div>
+      </div>
+      <div class="col" style="margin-bottom:10px">
+        <label class="fl">HA Mode</label>
+        <div class="ha-mode-row">${modeButtons}</div>
+        <div style="margin-top:5px;font-size:11px;color:var(--tx)">${haNote}</div>
+      </div>
+      <div>
+        <div class="r" style="gap:6px">
+          <span class="grp-labels-label">WAN Labels at These Spokes</span>
+          <button class="grp-all-btn" onclick="toggleAllSG(${sg.id},true)">All</button>
+          <button class="grp-all-btn" onclick="toggleAllSG(${sg.id},false)">None</button>
+        </div>
+        <div class="chip-row" id="sg-chips-${sg.id}">
+          ${S.labels.map(l=>chipHtml(l.id, sg.labelIds, `toggleSGLabel_${sg.id}`)).join('')}
+        </div>
+      </div>
+    `;
+    cont.appendChild(div);
+    window[`toggleSGLabel_${sg.id}`] = (lid) => { toggleSGLabel(sg.id, lid); };
+  });
+}
+function updSG(id,f,v){const g=S.spokeGroups.find(x=>x.id===id);if(g){g[f]=v;if(f!=='name'){renderSpokeGroups();calc();}}}
+function stepSG(id,d){
+  const g=S.spokeGroups.find(x=>x.id===id);if(!g)return;
+  g.sites=Math.max(0,g.sites+d);
+  document.getElementById('sgc_'+id).value=g.sites;
+  renderSpokeGroups(); calc();
+}
+function addSpokeGroup(){
+  S.spokeGroups.push({id:S.nextId++,name:'Spoke Group',sites:10,labelIds:S.labels.map(l=>l.id),haMode:'single'});
+  renderSpokeGroups(); calc();
+}
+function delSG(id){
+  if(S.spokeGroups.length<=1)return;
+  S.spokeGroups=S.spokeGroups.filter(x=>x.id!==id);
+  renderSpokeGroups(); calc();
+}
+function toggleSGLabel(gid,lid){
+  const g=S.spokeGroups.find(x=>x.id===gid);if(!g)return;
+  const i=g.labelIds.indexOf(lid);
+  if(i>=0)g.labelIds.splice(i,1); else g.labelIds.push(lid);
+  renderSpokeGroups(); calc();
+}
+function toggleAllSG(gid,on){
+  const g=S.spokeGroups.find(x=>x.id===gid);if(!g)return;
+  g.labelIds=on?S.labels.map(l=>l.id):[];
+  renderSpokeGroups(); calc();
+}
+
+// ============================================================
+//  RENDER BIOs
+// ============================================================
+function renderBios() {
+  const cont = document.getElementById('bio-rows');
+  cont.innerHTML = '';
+  const total = S.bios.length;
+  const mesh  = S.bios.filter(b=>b.topo==='mesh').length;
+  const n = document.getElementById('bio-count-notice');
+  if(total>0){
+    const cls = total>7?'notice n-danger':total>=6?'notice n-warn':'notice n-info';
+    n.className=cls; n.style.display='flex';
+    n.innerHTML=`<span class="ni">${total>7?'❌':total>=6?'⚠':'ℹ'}</span>
+      <span>${total} overlay${total!==1?'s':''} (${total-mesh} hub-spoke + ${mesh} mesh)
+      ${total>7?'— <strong>EXCEEDS MAX 7</strong>':` — ${7-total} slot${7-total!==1?'s':''} remaining`}</span>`;
+  } else { n.style.display='none'; }
+
+  S.bios.forEach(bio => {
+    const div = document.createElement('div');
+    div.className = 'bio-row';
+    const scope = bio.topo==='mesh'
+      ? 'Hub↔Spoke · Hub↔Hub · Spoke↔Spoke (Any-topo labels only)'
+      : 'Hub↔Spoke · Hub↔Hub';
+    div.innerHTML = `
+      <div class="bio-top">
+        <div class="bio-name col">
+          <label class="fl">Overlay Name</label>
+          <input type="text" value="${bio.name}" onchange="updBIO(${bio.id},'name',this.value)">
+        </div>
+        <div class="col">
+          <label class="fl">Topology</label>
+          <div class="bio-topo">
+            <select onchange="updBIO(${bio.id},'topo',this.value)">
+              <option value="hs"   ${bio.topo==='hs'  ?'selected':''}>Hub-Spoke</option>
+              <option value="mesh" ${bio.topo==='mesh'?'selected':''}>Mesh</option>
+            </select>
+          </div>
+        </div>
+        <div class="col" style="align-self:flex-end">
+          <button class="btn-del" onclick="delBIO(${bio.id})" ${S.bios.length<=1?'disabled':''}>✕</button>
+        </div>
+      </div>
+      <div class="bio-scope">${scope}</div>
+      <div style="margin-top:8px">
+        <div class="r" style="gap:6px">
+          <span class="grp-labels-label">Labels Used in This Overlay</span>
+          <button class="grp-all-btn" onclick="toggleAllBIO(${bio.id},true)">All</button>
+          <button class="grp-all-btn" onclick="toggleAllBIO(${bio.id},false)">None</button>
+        </div>
+        <div class="chip-row">
+          ${S.labels.map(l=>chipHtml(l.id, bio.labelIds, `toggleBIOLabel_${bio.id}`)).join('')}
+        </div>
+      </div>
+    `;
+    cont.appendChild(div);
+    window[`toggleBIOLabel_${bio.id}`] = (lid) => { toggleBIOLabel(bio.id, lid); };
+  });
+}
+function updBIO(id,f,v){const b=S.bios.find(x=>x.id===id);if(b){b[f]=v;renderBios();calc();}}
+function addBio(){
+  if(S.bios.length>=7){alert('Maximum 7 overlays supported.');return;}
+  S.bios.push({id:S.nextId++,name:'Overlay',topo:'hs',labelIds:S.labels.map(l=>l.id)});
+  renderBios(); calc();
+}
+function delBIO(id){
+  if(S.bios.length<=1)return;
+  S.bios=S.bios.filter(x=>x.id!==id);
+  renderBios(); calc();
+}
+function toggleBIOLabel(bid,lid){
+  const b=S.bios.find(x=>x.id===bid);if(!b)return;
+  const i=b.labelIds.indexOf(lid);
+  if(i>=0)b.labelIds.splice(i,1); else b.labelIds.push(lid);
+  renderBios(); calc();
+}
+function toggleAllBIO(bid,on){
+  const b=S.bios.find(x=>x.id===bid);if(!b)return;
+  b.labelIds=on?S.labels.map(l=>l.id):[];
+  renderBios(); calc();
+}
+
+// ============================================================
+//  CORE TUNNEL MATH ENGINE
+//
+//  tunnelsBetween(idsA, idsB):
+//    Think of CC groups as a "switchboard". Every label on
+//    side A in group X connects to every label on side B
+//    in group X (N × M). Labels with cc='none' are direct
+//    lines — they only connect to the exact same label on
+//    the far end (1:1 match by label ID).
+// ============================================================
+function tunnelsBetween(idsA, idsB) {
+  const lblA = idsA.map(id=>S.labels.find(l=>l.id===id)).filter(Boolean);
+  const lblB = idsB.map(id=>S.labels.find(l=>l.id===id)).filter(Boolean);
+  if(!lblA.length || !lblB.length) return 0;
+  let t = 0;
+  // CC groups: N×M per group
+  const ccGs = new Set([
+    ...lblA.filter(l=>l.cc!=='none').map(l=>l.cc),
+    ...lblB.filter(l=>l.cc!=='none').map(l=>l.cc),
+  ]);
+  ccGs.forEach(g => {
+    const cA = lblA.filter(l=>l.cc===g).length;
+    const cB = lblB.filter(l=>l.cc===g).length;
+    if(cA>0 && cB>0) t += cA*cB;
+  });
+  // cc='none': exact label ID match
+  const noneA = new Set(lblA.filter(l=>l.cc==='none').map(l=>l.id));
+  lblB.filter(l=>l.cc==='none' && noneA.has(l.id)).forEach(()=>t++);
+  return t;
+}
+
+// ============================================================
+//  UNDERLAY COUNT PER PEER PAIR
+//
+//  Underlay tunnels form over all label pairs used by at
+//  least one applicable BIO. Think of it as: the union of
+//  all BIO label sets determines which labels are "active"
+//  for underlay formation between two devices.
+//
+//  relType: 'hs' (hub↔spoke or hub↔hub) | 'ss' (spoke↔spoke)
+//  For 'ss': only 'any'-topo labels can form underlay tunnels.
+// ============================================================
+function underlayBetween(idsA, idsB, relType) {
+  // Get union of applicable BIO label IDs
+  const applicableBios = (relType === 'ss')
+    ? S.bios.filter(b => b.topo === 'mesh')
+    : S.bios;
+  if(!applicableBios.length) return 0;
+
+  const bioLabelSet = new Set(applicableBios.flatMap(b => b.labelIds));
+
+  let eA = idsA.filter(id => bioLabelSet.has(id));
+  let eB = idsB.filter(id => bioLabelSet.has(id));
+
+  // For spoke↔spoke: further restrict to 'any'-topo labels only
+  if(relType === 'ss') {
+    const anyTopo = id => S.labels.find(l=>l.id===id)?.topo === 'any';
+    eA = eA.filter(anyTopo);
+    eB = eB.filter(anyTopo);
+  }
+
+  return tunnelsBetween(eA, eB);
+}
+
+// ============================================================
+//  OVERLAY COUNT PER PEER PAIR
+//
+//  Returns the number of BIOs that form an overlay for this
+//  peer relationship. A BIO contributes if:
+//   1. Its topology matches the relationship type (mesh BIOs
+//      are required for spoke↔spoke)
+//   2. It has at least one valid underlay tunnel to carry it
+//      (tunnelsBetween on the BIO's effective label sets > 0)
+// ============================================================
+function overlaysBetween(idsA, idsB, relType) {
+  return S.bios.filter(bio => {
+    // Topology gate: spoke↔spoke requires mesh BIO
+    if(relType === 'ss' && bio.topo !== 'mesh') return false;
+
+    // Filter device labels through this BIO's label set
+    let bA = idsA.filter(id => bio.labelIds.includes(id));
+    let bB = idsB.filter(id => bio.labelIds.includes(id));
+
+    // For spoke↔spoke: additionally restrict to 'any'-topo labels
+    if(relType === 'ss') {
+      const anyTopo = id => S.labels.find(l=>l.id===id)?.topo === 'any';
+      bA = bA.filter(anyTopo);
+      bB = bB.filter(anyTopo);
+    }
+
+    // Overlay only forms if at least one underlay tunnel exists to carry it
+    return tunnelsBetween(bA, bB) > 0;
+  }).length;
+}
+
+// ============================================================
+//  MAIN CALCULATION ENGINE
+// ============================================================
+function calcAll() {
+  const sse = gv('sse');
+  const results = [];
+
+  // ---- HUB GROUPS ----
+  S.hubGroups.forEach(hg => {
+    let ul = 0, ov = 0;
+    const ulRows = [], ovRows = [];
+    const appl = hgAppliances(hg);
+    const applPerSite = hg.haMode === 'single' ? 1 : 2;
+
+    // Hub ↔ Spoke (all labels, relType 'hs')
+    S.spokeGroups.forEach(sg => {
+      const sgAppl = sgAppliances(sg);
+      const u = underlayBetween(hg.labelIds, sg.labelIds, 'hs');
+      const o = overlaysBetween(hg.labelIds, sg.labelIds, 'hs');
+      if(u > 0 || o > 0) {
+        ulRows.push({peer:sg.name, count:sgAppl, perPeer:u, total:u*sgAppl, rel:'Hub↔Spoke',
+          note:`${sg.sites} site${sg.sites!==1?'s':''} × ${sgAppl/sg.sites} appl/site`,
+          peerLabelIds:sg.labelIds});
+        ovRows.push({peer:sg.name, count:sgAppl, perPeer:o, total:o*sgAppl, rel:'Hub↔Spoke',
+          note:`${sg.sites} site${sg.sites!==1?'s':''} × ${sgAppl/sg.sites} appl/site`,
+          peerLabelIds:sg.labelIds});
+      }
+      ul += u * sgAppl;
+      ov += o * sgAppl;
+    });
+
+    // Hub ↔ Hub (all labels, relType 'hs')
+    // Same-group: (sites-1) remote sites × applPerSite appliances each
+    {
+      const remoteSites = Math.max(0, hg.sites - 1);
+      const remoteAppl = remoteSites * applPerSite;
+      if(remoteAppl > 0) {
+        const u = underlayBetween(hg.labelIds, hg.labelIds, 'hs');
+        const o = overlaysBetween(hg.labelIds, hg.labelIds, 'hs');
+        if(u > 0 || o > 0) {
+          ulRows.push({peer:`${hg.name} (same group)`, count:remoteAppl, perPeer:u,
+            total:u*remoteAppl, rel:'Hub↔Hub',
+            note:`${remoteSites} remote site${remoteSites!==1?'s':''} × ${applPerSite} appl/site`,
+            peerLabelIds:hg.labelIds});
+          ovRows.push({peer:`${hg.name} (same group)`, count:remoteAppl, perPeer:o,
+            total:o*remoteAppl, rel:'Hub↔Hub',
+            note:`${remoteSites} remote site${remoteSites!==1?'s':''} × ${applPerSite} appl/site`,
+            peerLabelIds:hg.labelIds});
+        }
+        ul += u * remoteAppl;
+        ov += o * remoteAppl;
+      }
+    }
+    // Other hub groups: all appliances in the remote group are valid peers
+    S.hubGroups.forEach(hg2 => {
+      if(hg2.id === hg.id) return;
+      const hg2Appl = hgAppliances(hg2);
+      const u = underlayBetween(hg.labelIds, hg2.labelIds, 'hs');
+      const o = overlaysBetween(hg.labelIds, hg2.labelIds, 'hs');
+      if(u > 0 || o > 0) {
+        ulRows.push({peer:hg2.name, count:hg2Appl, perPeer:u, total:u*hg2Appl, rel:'Hub↔Hub',
+          note:`${hg2.sites} site${hg2.sites!==1?'s':''} × ${hg2Appl/hg2.sites} appl/site`,
+          peerLabelIds:hg2.labelIds});
+        ovRows.push({peer:hg2.name, count:hg2Appl, perPeer:o, total:o*hg2Appl, rel:'Hub↔Hub',
+          note:`${hg2.sites} site${hg2.sites!==1?'s':''} × ${hg2Appl/hg2.sites} appl/site`,
+          peerLabelIds:hg2.labelIds});
+      }
+      ul += u * hg2Appl;
+      ov += o * hg2Appl;
+    });
+
+    // Passthrough: WAN BIO×label
+    const pt = hg.labelIds.length * (S.bios.length + 1);
+    // SSE
+    const sseT = sse * 2 * hg.labelIds.length;
+    // EdgeHA HA-link tunnels
+    const ha = hg.haMode === 'edgeha' ? Math.ceil(hg.labelIds.length / 2) : 0;
+
+    const total = ul + ov + pt + sseT + ha;
+    results.push({
+      id:hg.id, name:hg.name, role:'hub',
+      sites:hg.sites, count:appl, haMode:hg.haMode,
+      ul, ov, pt, sseT, ha, total, cap:10000,
+      ulRows, ovRows,
+      labelIds: hg.labelIds,
+      labelCount: hg.labelIds.length
+    });
+  });
+
+  // ---- SPOKE GROUPS ----
+  //
+  //  Spoke↔spoke peer count depends on HA mode:
+  //    Single:      remote_sites (1 appliance/site, same-site exclusion trivial)
+  //    Traditional: remote_sites × 2 (both appliances at remote site are independent peers)
+  //    EdgeHA:      remote_sites × 2 (same as traditional for remote peers)
+  //
+  //  Same-group self-peers: (sites - 1) × appl_per_remote_site
+  //    Single:      (sites - 1) × 1
+  //    Traditional: (sites - 1) × 2
+  //    EdgeHA:      (sites - 1) × 2
+  //
+  //  HA-link tunnels (EdgeHA only): ≈ ceil(labelCount/2) per appliance
+  //  (each appliance physically terminates roughly half the site's labels
+  //   and shares them to the partner via the HA backplane)
+  //
+  S.spokeGroups.forEach(sg => {
+    let ul = 0, ov = 0;
+    const ulRows = [], ovRows = [];
+    const appl = sgAppliances(sg);       // total appliances in this group
+    const applPerSite = sg.haMode === 'single' ? 1 : 2;
+
+    // Spoke ↔ Hub  (peer count = hub appliance count, unaffected by HA mode)
+    S.hubGroups.forEach(hg => {
+      const hgAppl = hgAppliances(hg);
+      const u = underlayBetween(sg.labelIds, hg.labelIds, 'hs');
+      const o = overlaysBetween(sg.labelIds, hg.labelIds, 'hs');
+      if(u > 0 || o > 0) {
+        ulRows.push({peer:hg.name, count:hgAppl, perPeer:u, total:u*hgAppl, rel:'Spoke↔Hub',
+          note:`${hg.sites} site${hg.sites!==1?'s':''} × ${hgAppl/hg.sites} appl/site`,
+          peerLabelIds:hg.labelIds});
+        ovRows.push({peer:hg.name, count:hgAppl, perPeer:o, total:o*hgAppl, rel:'Spoke↔Hub',
+          note:`${hg.sites} site${hg.sites!==1?'s':''} × ${hgAppl/hg.sites} appl/site`,
+          peerLabelIds:hg.labelIds});
+      }
+      ul += u * hgAppl;
+      ov += o * hgAppl;
+    });
+
+    // Spoke ↔ Spoke (mesh BIOs + any-topo labels only)
+    // Same group: (sites - 1) remote sites, each with applPerSite appliances
+    {
+      const remoteSites = Math.max(0, sg.sites - 1);
+      const remoteAppl = remoteSites * applPerSite;
+      if(remoteAppl > 0) {
+        const u = underlayBetween(sg.labelIds, sg.labelIds, 'ss');
+        const o = overlaysBetween(sg.labelIds, sg.labelIds, 'ss');
+        if(u > 0 && o > 0) {
+          ulRows.push({peer:`${sg.name} (same group)`, count:remoteAppl, perPeer:u,
+            total:u*remoteAppl, rel:'Spoke↔Spoke',
+            note:`${remoteSites} remote site${remoteSites!==1?'s':''} × ${applPerSite} appl/site`,
+            peerLabelIds:sg.labelIds});
+          ovRows.push({peer:`${sg.name} (same group)`, count:remoteAppl, perPeer:o,
+            total:o*remoteAppl, rel:'Spoke↔Spoke',
+            note:`${remoteSites} remote site${remoteSites!==1?'s':''} × ${applPerSite} appl/site`,
+            peerLabelIds:sg.labelIds});
+          ul += u * remoteAppl;
+          ov += o * remoteAppl;
+        }
+      }
+    }
+    // Other spoke groups
+    S.spokeGroups.forEach(sg2 => {
+      if(sg2.id === sg.id) return;
+      const remoteAppl = sgAppliances(sg2);  // all appliances in the other group are valid peers
+      const u = underlayBetween(sg.labelIds, sg2.labelIds, 'ss');
+      const o = overlaysBetween(sg.labelIds, sg2.labelIds, 'ss');
+      if(u > 0 && o > 0) {
+        ulRows.push({peer:sg2.name, count:remoteAppl, perPeer:u,
+          total:u*remoteAppl, rel:'Spoke↔Spoke',
+          note:`${sg2.sites} site${sg2.sites!==1?'s':''} × ${sgAppliances(sg2)/sg2.sites} appl/site`,
+          peerLabelIds:sg2.labelIds});
+        ovRows.push({peer:sg2.name, count:remoteAppl, perPeer:o,
+          total:o*remoteAppl, rel:'Spoke↔Spoke',
+          note:`${sg2.sites} site${sg2.sites!==1?'s':''} × ${sgAppliances(sg2)/sg2.sites} appl/site`,
+          peerLabelIds:sg2.labelIds});
+        ul += u * remoteAppl;
+        ov += o * remoteAppl;
+      }
+    });
+
+    // Passthrough (WAN BIO×label — same formula regardless of HA mode)
+    const pt = sg.labelIds.length * (S.bios.length + 1);
+
+    // EdgeHA HA-link tunnels: ≈ ceil(labelCount/2) per appliance
+    // (approximation: each appliance physically terminates ~half the site's labels)
+    const ha = sg.haMode === 'edgeha' ? Math.ceil(sg.labelIds.length / 2) : 0;
+
+    // SSE
+    const sseT = sse * 2 * sg.labelIds.length;
+
+    const total = ul + ov + pt + sseT + ha;
+    results.push({
+      id:sg.id, name:sg.name, role:'spoke',
+      sites:sg.sites, count:appl, haMode:sg.haMode,
+      ul, ov, pt, sseT, ha, total, cap:5000,
+      ulRows, ovRows,
+      labelIds: sg.labelIds,
+      labelCount: sg.labelIds.length
+    });
+  });
+
+  return results;
+}
+
+// ============================================================
+//  RENDER RESULTS
+// ============================================================
+function renderResults(devices) {
+  const cont = document.getElementById('res-body');
+  cont.innerHTML = '';
+
+  if(!devices.length) {
+    cont.innerHTML='<div style="padding:24px;text-align:center;color:var(--txd)">No gateway groups configured.</div>';
+    return;
+  }
+
+  // Helper: render label names as small inline tags
+  function labelTags(labelIds) {
+    if(!labelIds || !labelIds.length) return '';
+    return labelIds.map(id => {
+      const l = S.labels.find(x=>x.id===id);
+      return l ? `<span class="lbl-tag">${l.name}</span>` : '';
+    }).join('');
+  }
+
+  devices.forEach(dev => {
+    const pct = Math.min(100, (dev.total/dev.cap)*100);
+    const st  = dev.total>dev.cap?'bad':dev.total>dev.cap*0.8?'warn':'ok';
+    const roleColor = dev.role==='hub'?'var(--blue)':'var(--orange)';
+    const roleLabel = dev.role==='hub'?'Hub Group':'Spoke Group';
+
+    // Mini type bars — scaled relative to total
+    const types = [
+      {key:'ul',  label:'Underlay',    val:dev.ul,   color:'var(--blue)',   dot:'#4DB8FF'},
+      {key:'ov',  label:'Overlay',     val:dev.ov,   color:'var(--orange)', dot:'#FF8300'},
+      {key:'pt',  label:'Passthrough', val:dev.pt,   color:'var(--green)',  dot:'#00D4A0'},
+      {key:'ha',  label:'EdgeHA',      val:dev.ha,   color:'var(--amber)',  dot:'#FFB800'},
+      {key:'sse', label:'SSE',         val:dev.sseT, color:'var(--purple)', dot:'#C47AFF'},
+    ].filter(t => t.val > 0 || t.key === 'ul' || t.key === 'ov' || t.key === 'pt');
+
+    const maxVal = Math.max(1, ...types.map(t=>t.val));
+    const typeBarsHtml = types.map(t => {
+      const barW = dev.total > 0 ? (t.val/dev.total*100).toFixed(1) : 0;
+      const zero = t.val === 0;
+      return `<div class="tbr${zero?' tbr-zero':''}">
+        <div class="tbr-lbl"><div class="tbr-dot" style="background:${t.dot}"></div>${t.label}</div>
+        <div class="tbr-track"><div class="tbr-fill" style="width:${barW}%;background:${t.color}"></div></div>
+        <div class="tbr-val">${t.val.toLocaleString()}</div>
+      </div>`;
+    }).join('');
+
+    // Underlay breakdown table
+    let ulHtml = '';
+    if(dev.ulRows.length) {
+      const byRel = {};
+      dev.ulRows.forEach(r => { (byRel[r.rel]=byRel[r.rel]||[]).push(r); });
+      Object.entries(byRel).forEach(([rel, rows]) => {
+        ulHtml += `<div class="bk-section-head" style="color:var(--blue);border-color:rgba(77,184,255,.2)">${rel}</div>`;
+        ulHtml += '<table class="bk-table">';
+        rows.forEach(r => {
+          ulHtml += `<tr><td class="bk-peer">↔ ${r.peer} (${r.count.toLocaleString()} appliance${r.count!==1?'s':''})
+            ${r.peerLabelIds ? `<div class="lbl-tags">${labelTags(r.peerLabelIds)}</div>` : ''}
+            ${r.note?`<span class="bk-note">${r.note}</span>`:''}</td>
+            <td>${r.total.toLocaleString()}<br><span class="bk-note">${r.perPeer} pair${r.perPeer!==1?'s':''}/peer × ${r.count}</span></td></tr>`;
+        });
+        ulHtml += '</table>';
+      });
+    } else {
+      ulHtml = '<div style="font-size:10px;color:var(--txd);padding:4px 0">No underlay tunnels</div>';
+    }
+
+    // Overlay breakdown table
+    let ovHtml = '';
+    if(dev.ovRows.length) {
+      const byRel = {};
+      dev.ovRows.forEach(r => { (byRel[r.rel]=byRel[r.rel]||[]).push(r); });
+      Object.entries(byRel).forEach(([rel, rows]) => {
+        ovHtml += `<div class="bk-section-head" style="color:var(--orange);border-color:rgba(255,131,0,.2)">${rel}</div>`;
+        ovHtml += '<table class="bk-table">';
+        rows.forEach(r => {
+          ovHtml += `<tr><td class="bk-peer">↔ ${r.peer} (${r.count.toLocaleString()} appliance${r.count!==1?'s':''})
+            ${r.peerLabelIds ? `<div class="lbl-tags">${labelTags(r.peerLabelIds)}</div>` : ''}
+            ${r.note?`<span class="bk-note">${r.note}</span>`:''}</td>
+            <td>${r.total.toLocaleString()}<br><span class="bk-note">${r.perPeer} BIO${r.perPeer!==1?'s':''}/peer × ${r.count}</span></td></tr>`;
+        });
+        ovHtml += '</table>';
+      });
+    } else {
+      ovHtml = '<div style="font-size:10px;color:var(--txd);padding:4px 0">No overlay tunnels</div>';
+    }
+
+    // Passthrough breakdown
+    const bioNames = S.bios.map(b=>b.name).join(', ');
+    let ptHtml = `<div class="bk-section-head" style="color:var(--green);border-color:rgba(0,212,160,.2)">WAN Interface Anchors + BIO × Label</div>
+      <table class="bk-table">
+        <tr><td class="bk-peer">Interface anchors: ${dev.labelCount} label${dev.labelCount!==1?'s':''} × 1</td>
+            <td>${dev.labelCount.toLocaleString()}</td></tr>
+        <tr><td class="bk-peer">BIO×label: ${dev.labelCount} label${dev.labelCount!==1?'s':''} × ${S.bios.length} BIO${S.bios.length!==1?'s':''}
+            <br><span class="bk-note">${bioNames}</span></td>
+            <td>${(dev.labelCount * S.bios.length).toLocaleString()}</td></tr>`;
+    if(dev.sseT > 0) {
+      ptHtml += `<tr><td class="bk-peer">SSE: ${dev.labelCount} labels × 2 × ${gv('sse')} pair${gv('sse')!==1?'s':''}</td>
+                     <td>${dev.sseT.toLocaleString()}</td></tr>`;
+    }
+    if(dev.ha > 0) {
+      ptHtml += `<tr><td class="bk-peer">EdgeHA: ${dev.labelCount} label${dev.labelCount!==1?'s':''} to HA partner</td>
+                     <td>${dev.ha.toLocaleString()}</td></tr>`;
+    }
+    ptHtml += '</table>';
+
+    const div = document.createElement('div');
+    div.className = 'dev-block';
+    div.innerHTML = `
+      <div class="dev-top">
+        <div>
+          <div class="dev-name">${dev.name}</div>
+          <div class="dev-sub">
+            <span style="color:${roleColor};font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${roleLabel}</span>
+            &nbsp;·&nbsp;${dev.sites} site${dev.sites!==1?'s':''} · ${dev.count} appliance${dev.count!==1?'s':''} · ${HA_MODES.find(m=>m.val===dev.haMode)?.label||''}
+            &nbsp;·&nbsp;cap ${dev.cap.toLocaleString()}
+            <div class="lbl-tags">${labelTags(dev.labelIds)}</div>
+          </div>
+        </div>
+        <div>
+          <div class="tnum ${st}">${dev.total.toLocaleString()}</div>
+          <div class="tnum-sub">tunnels/device</div>
+        </div>
+      </div>
+      <div class="type-bars">${typeBarsHtml}</div>
+      <div class="capbar"><div class="capfill ${st!=='ok'?st:''}" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="cap-txt">
+        ${dev.total.toLocaleString()} / ${dev.cap.toLocaleString()} (${pct.toFixed(1)}% utilized)
+        ${st==='bad'?'<strong style="color:var(--red)"> ⚠ EXCEEDS CAPACITY</strong>':''}
+        ${st==='warn'?'<strong style="color:var(--amber)"> △ Near capacity</strong>':''}
+      </div>
+      <details class="bkd">
+        <summary>Show detailed breakdown (${dev.ul} underlay · ${dev.ov} overlay · ${dev.pt + dev.sseT + dev.ha} passthrough)</summary>
+        <div class="bk-section">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--blue);margin:10px 0 4px">🔵 Underlay Tunnels</div>
+          ${ulHtml}
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--orange);margin:10px 0 4px">🟠 Overlay Tunnels</div>
+          ${ovHtml}
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin:10px 0 4px">🟢 Passthrough Tunnels (WAN)</div>
+          ${ptHtml}
+          <table class="bk-table" style="margin-top:8px">
+            <tr class="bk-total"><td>Total per device</td><td>${dev.total.toLocaleString()}</td></tr>
+            <tr style="font-size:10px"><td style="color:var(--txd)">Total across all ${dev.count} ${dev.name}</td><td style="font-family:'IBM Plex Mono',monospace;text-align:right;color:var(--txd)">${(dev.total*dev.count).toLocaleString()}</td></tr>
+          </table>
+        </div>
+      </details>
+    `;
+    cont.appendChild(div);
+  });
+}
+
+// ============================================================
+//  MAIN CALC ENTRY
+// ============================================================
+function calc() {
+  const devices = calcAll();
+  renderResults(devices);
+  return devices;
+}
+
+// ============================================================
+//  XLSX EXPORT
+// ============================================================
+function exportXLSX() {
+  const devices = calcAll();
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Configuration
+  const cfg = [
+    ['HPE Aruba Networking — EdgeConnect SD-WAN Tunnel Estimation Report'],
+    ['Generated:', new Date().toLocaleString()],
+    ['Tool Version:', 'v4.2 — Underlay · Overlay · Passthrough'],
+    [],
+    ['WAN LABELS'],
+    ['Name','Overlay Topology','CC Group'],
+    ...S.labels.map(l=>[l.name, l.topo==='any'?'Any (Full Mesh)':'Hub-Spoke Only', l.cc==='none'?'None (exact match)':'Group '+l.cc]),
+    [],
+    ['HUB GATEWAY GROUPS'],
+    ['Group Name','Sites','Appliances','HA Mode','WAN Labels'],
+    ...S.hubGroups.map(g=>[g.name, g.sites, hgAppliances(g),
+      HA_MODES.find(m=>m.val===g.haMode)?.label||g.haMode,
+      g.labelIds.map(id=>S.labels.find(l=>l.id===id)?.name||'?').join(', ')]),
+    [],
+    ['SPOKE GATEWAY GROUPS'],
+    ['Group Name','Sites','Appliances','HA Mode','WAN Labels'],
+    ...S.spokeGroups.map(g=>[g.name, g.sites, sgAppliances(g),
+      HA_MODES.find(m=>m.val===g.haMode)?.label||g.haMode,
+      g.labelIds.map(id=>S.labels.find(l=>l.id===id)?.name||'?').join(', ')]),
+    [],
+    ['BUSINESS INTENT OVERLAYS'],
+    ['Overlay Name','Topology','Labels Used'],
+    ...S.bios.map(b=>[b.name, b.topo==='mesh'?'Mesh':'Hub-Spoke', b.labelIds.map(id=>S.labels.find(l=>l.id===id)?.name||'?').join(', ')]),
+    [],
+    ['SSE Service Pairs:', gv('sse')],
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(cfg);
+  ws1['!cols']=[{wch:30},{wch:25},{wch:35},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Configuration');
+
+  // Sheet 2: Summary
+  const sum = [
+    ['TUNNEL ESTIMATES — Summary (Per Device)'],
+    [],
+    ['Group','Role','Sites','Appliances','Underlay','Overlay','Passthrough (WAN)','EdgeHA','SSE','TOTAL','Capacity','% Used','Status'],
+    ...devices.map(d=>[
+      d.name, d.role==='hub'?'Hub':'Spoke',
+      `${d.sites} sites (${HA_MODES.find(m=>m.val===d.haMode)?.label||''})`,
+      d.count, d.ul, d.ov, d.pt, d.ha, d.sseT, d.total,
+      d.cap, ((d.total/d.cap)*100).toFixed(1)+'%',
+      d.total>d.cap?'EXCEEDS CAPACITY':d.total>d.cap*0.8?'Near capacity':'OK'
+    ]),
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(sum);
+  ws2['!cols']=[{wch:28},{wch:8},{wch:12},{wch:10},{wch:10},{wch:18},{wch:10},{wch:8},{wch:10},{wch:10},{wch:8},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+
+  // Sheet 3: Detailed Breakdown
+  const det = [
+    ['TUNNEL ESTIMATES — Detailed Breakdown'],
+    [],
+  ];
+  devices.forEach(d => {
+    det.push([d.name.toUpperCase()+` — ${d.role} · ${d.count} appliance${d.count!==1?'s':''}`]);
+    det.push(['Type','Relationship','Peer Group','Peers','Tunnels/Peer','Total Tunnels']);
+
+    // Underlay rows
+    const byRelUL = {};
+    d.ulRows.forEach(r => { (byRelUL[r.rel]=byRelUL[r.rel]||[]).push(r); });
+    Object.entries(byRelUL).forEach(([rel, rows]) => {
+      rows.forEach(r => det.push(['Underlay', rel, r.peer, r.count, r.perPeer, r.total]));
+    });
+    det.push(['Underlay','','','','SUBTOTAL:', d.ul]);
+
+    // Overlay rows
+    const byRelOV = {};
+    d.ovRows.forEach(r => { (byRelOV[r.rel]=byRelOV[r.rel]||[]).push(r); });
+    Object.entries(byRelOV).forEach(([rel, rows]) => {
+      rows.forEach(r => det.push(['Overlay', rel, r.peer, r.count, r.perPeer+' BIOs', r.total]));
+    });
+    det.push(['Overlay','','','','SUBTOTAL:', d.ov]);
+
+    // Passthrough
+    det.push(['Passthrough (WAN)', '', `${d.labelCount} labels × (${S.bios.length} BIOs + 1 iface anchor)`, '', '', d.pt]);
+    if(d.sseT>0) det.push(['Passthrough (SSE)', '', `${d.labelCount} labels × 2 × ${gv('sse')} pairs`, '', '', d.sseT]);
+    if(d.ha>0)   det.push(['EdgeHA', '', `${d.labelCount} labels to HA partner`, '', '', d.ha]);
+    det.push(['','','','','TOTAL/DEVICE:', d.total]);
+    det.push(['','','','','TOTAL ALL:', d.total*d.count]);
+    det.push([]);
+  });
+  const ws3 = XLSX.utils.aoa_to_sheet(det);
+  ws3['!cols']=[{wch:26},{wch:16},{wch:32},{wch:8},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Breakdown');
+
+  // Sheet 4: Reference
+  const ref = [
+    ['CROSS-CONNECT GROUP — UNDERLAY TUNNEL MATH'],
+    [],
+    ['Labels in the same CC group form a full N×M underlay matrix between endpoint label sets.'],
+    ['Labels with cc=none only match their exact counterpart on the far end (1:1 by label identity).'],
+    [],
+    ['Example: Hub has INET1(A)+INET2(A)+MPLS(none). Spoke has INET1(A)+MPLS(none).'],
+    ['  Group 1 at hub: INET1,INET2 (2). Group 1 at spoke: INET1 (1). Underlay from Group 1: 2×1=2'],
+    ['  cc=none: MPLS matches MPLS: 1 underlay tunnel.'],
+    ['  Total underlay per pair: 3  |  Overlay per pair: 1 per applicable BIO'],
+    [],
+    ['TUNNEL TYPE SUMMARY'],
+    ['Type','What it is','Formula'],
+    ['Underlay','Physical transport tunnel (IPsec/UDP). 1 per label pair. Carries all BIOs sharing that label pair.','CC group N×M per peer, gated by BIO label union'],
+    ['Overlay','Application segmentation tunnel. 1 per BIO per peer relationship.','Count of applicable BIOs × peer count'],
+    ['Passthrough (WAN)','1 per WAN label (interface anchor) + 1 per label per BIO (BIO×label entry point).','label_count × (BIO_count + 1) per device'],
+    ['Passthrough (WAN Iface Anchor)','1 per physical WAN interface. Site-specific, excluded from calc.','N/A — excluded'],
+    ['Passthrough (LAN)','LAN-side passthroughs. Excluded from calc.','N/A — excluded'],
+    ['EdgeHA','1 tunnel per label to HA partner appliance.','label_count (per device)'],
+    ['SSE','Passthrough tunnels to SSE PoP(s).','2 × label_count × sse_pairs (per device)'],
+    [],
+    ['DEVICE CAPACITY'],
+    ['Model','Role','Max Tunnels'],
+    ['EC-US','Small Branch','2,000'],
+    ['EC-XS (9.2+)','Small Branch','5,000'],
+    ['EC-S-P','Large Branch','5,000'],
+    ['EC-M-H','Hub / DC','10,000'],
+    ['EC-L-H','Hub / DC','10,000'],
+    ['EC-XL-H','Hub / DC','10,000'],
+  ];
+  const ws4 = XLSX.utils.aoa_to_sheet(ref);
+  ws4['!cols']=[{wch:28},{wch:55},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, ws4, 'Reference');
+
+  XLSX.writeFile(wb, 'EdgeConnect_Tunnel_Estimate_v4.xlsx');
+}
+
+// ============================================================
+//  RESET
+// ============================================================
+function resetAll() {
+  S.labels=[
+    {id:1,name:'INET1',topo:'any',cc:'1'},
+    {id:2,name:'INET2',topo:'any',cc:'1'},
+    {id:3,name:'MPLS', topo:'any', cc:'none'},
+    {id:4,name:'LTE',  topo:'any',cc:'none'},
+  ];
+  S.hubGroups=[{id:5,name:'DC Hubs',sites:2,labelIds:[1,2,3],haMode:'single'}];
+  S.spokeGroups=[
+    {id:6,name:'INET + LTE Spokes', sites:30,labelIds:[1,2,4],haMode:'single'},
+    {id:7,name:'INET + MPLS Spokes',sites:20,labelIds:[1,2,3],haMode:'single'},
+  ];
+  S.bios=[
+    {id:8, name:'Business', topo:'hs',  labelIds:[1,2,3]},
+    {id:9, name:'Guest',    topo:'hs',  labelIds:[1,2,4]},
+    {id:10,name:'RealTime', topo:'mesh',labelIds:[1,2,3]},
+  ];
+  S.nextId=20;
+  document.getElementById('sse').value=0;
+  renderLabels();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+renderLabels();
+</script>
+</body>
+</html>
