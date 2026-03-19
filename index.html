@@ -305,7 +305,7 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
     <h1>EdgeConnect SD-WAN Tunnel Estimator</h1>
     <p>HPE Aruba Networking — Underlay · Overlay · Passthrough</p>
   </div>
-  <div class="vpill">v4.3</div>
+  <div class="vpill">v4.4</div>
 </header>
 
 <div class="layout">
@@ -482,8 +482,10 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
 
   <div class="exp-row">
     <button class="btn btn-pri" onclick="exportXLSX()">📥 Export XLSX</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">📂 Import XLSX</button>
     <button class="btn btn-ghost" onclick="resetAll()">↺ Reset</button>
   </div>
+  <input type="file" id="import-file" accept=".xlsx" style="display:none" onchange="importXLSX(this)">
   <div style="font-size:10px;color:var(--txd);text-align:center">Estimation only — actual counts vary by site configuration. LAN-side passthroughs and physical WAN interface anchors excluded.</div>
 
 </div><!-- /res-col -->
@@ -1332,8 +1334,199 @@ function calc() {
 }
 
 // ============================================================
-//  XLSX EXPORT
+//  IMPORT FROM XLSX
+//
+//  Reads the "Configuration" sheet from a previously exported
+//  XLSX and reconstructs the full S state from it. The config
+//  sheet is a flat labeled-section format, so we scan row by
+//  row looking for section headers then read rows until the
+//  next blank or section header.
 // ============================================================
+function importXLSX(input) {
+  const file = input.files[0];
+  if(!file) return;
+  // Reset input so same file can be re-imported if needed
+  input.value = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+
+      // Must have a Configuration sheet
+      if(!wb.SheetNames.includes('Configuration')) {
+        alert('This file does not appear to be a valid EdgeConnect Tunnel Calculator export.\n\nExpected a sheet named "Configuration".');
+        return;
+      }
+
+      const ws = wb.Sheets['Configuration'];
+      const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+      // Helper: find the row index of a section header
+      function findSection(name) {
+        return data.findIndex(row => row[0] === name);
+      }
+
+      // Helper: read data rows after a header row until blank or next section
+      // Skips the header row itself (offset=1), returns array of row arrays
+      const SECTION_HEADERS = new Set([
+        'WAN LABELS','HUB GATEWAY GROUPS','SPOKE GATEWAY GROUPS',
+        'BUSINESS INTENT OVERLAYS','SSE Service Pairs:'
+      ]);
+      function readSection(startIdx) {
+        const rows = [];
+        // startIdx is the section title row, startIdx+1 is the column header row
+        // data starts at startIdx+2
+        let i = startIdx + 2;
+        while(i < data.length) {
+          const row = data[i];
+          const firstCell = row[0];
+          // Stop at blank row or another section header
+          if(firstCell === null || firstCell === undefined || SECTION_HEADERS.has(firstCell)) break;
+          if(row.every(c => c === null || c === undefined)) break;
+          rows.push(row);
+          i++;
+        }
+        return rows;
+      }
+
+      // ---- Parse WAN LABELS ----
+      const labelRows = readSection(findSection('WAN LABELS'));
+      // Format: [Name, Overlay Topology, CC Group]
+      const newLabels = [];
+      let idCounter = 1;
+      for(const row of labelRows) {
+        const name = row[0];
+        const topoStr = row[1];
+        const ccStr = row[2];
+        if(!name) continue;
+        const topo = topoStr === 'Any (Full Mesh)' ? 'any' : 'hs';
+        let cc = 'none';
+        if(ccStr && ccStr !== 'None (exact match)') {
+          // "Group 1" → "1", "Group 2" → "2", etc.
+          const m = String(ccStr).match(/Group\s+(\w+)/i);
+          if(m) cc = m[1];
+        }
+        newLabels.push({id: idCounter++, name, topo, cc});
+      }
+      if(!newLabels.length) {
+        alert('Could not find any WAN Labels in the Configuration sheet. Is this a valid export?');
+        return;
+      }
+
+      // Helper: resolve label names → IDs from the new label set
+      function resolveLabels(nameStr) {
+        if(!nameStr) return [];
+        return nameStr.split(',')
+          .map(n => n.trim())
+          .map(n => newLabels.find(l => l.name === n)?.id)
+          .filter(Boolean);
+      }
+
+      // Helper: HA mode label → val
+      function parseHAMode(str) {
+        if(!str) return 'single';
+        const s = String(str).toLowerCase();
+        if(s.includes('edgeha') || s.includes('edge ha')) return 'edgeha';
+        if(s.includes('traditional')) return 'traditional';
+        return 'single';
+      }
+
+      // ---- Parse HUB GATEWAY GROUPS ----
+      const hubRows = readSection(findSection('HUB GATEWAY GROUPS'));
+      // Format: [Group Name, Sites, Appliances, HA Mode, WAN Labels]
+      const newHubGroups = [];
+      for(const row of hubRows) {
+        const name = row[0];
+        if(!name) continue;
+        newHubGroups.push({
+          id: idCounter++,
+          name: String(name),
+          sites: parseInt(row[1]) || 1,
+          haMode: parseHAMode(row[3]),
+          labelIds: resolveLabels(row[4]),
+        });
+      }
+
+      // ---- Parse SPOKE GATEWAY GROUPS ----
+      const spokeRows = readSection(findSection('SPOKE GATEWAY GROUPS'));
+      // Format: [Group Name, Sites, Appliances, HA Mode, WAN Labels]
+      const newSpokeGroups = [];
+      for(const row of spokeRows) {
+        const name = row[0];
+        if(!name) continue;
+        newSpokeGroups.push({
+          id: idCounter++,
+          name: String(name),
+          sites: parseInt(row[1]) || 1,
+          haMode: parseHAMode(row[3]),
+          labelIds: resolveLabels(row[4]),
+        });
+      }
+
+      // ---- Parse BUSINESS INTENT OVERLAYS ----
+      const bioRows = readSection(findSection('BUSINESS INTENT OVERLAYS'));
+      // Format: [Overlay Name, Topology, Labels Used]
+      const newBios = [];
+      for(const row of bioRows) {
+        const name = row[0];
+        if(!name) continue;
+        const topoStr = String(row[1] || '');
+        newBios.push({
+          id: idCounter++,
+          name: String(name),
+          topo: topoStr.toLowerCase() === 'mesh' ? 'mesh' : 'hs',
+          labelIds: resolveLabels(row[2]),
+        });
+      }
+
+      // ---- Parse SSE ----
+      const sseIdx = findSection('SSE Service Pairs:');
+      let newSSE = 0;
+      if(sseIdx >= 0) {
+        newSSE = parseInt(data[sseIdx][1]) || 0;
+      }
+
+      // ---- Validation ----
+      const errors = [];
+      if(!newHubGroups.length)  errors.push('No Hub Gateway Groups found');
+      if(!newSpokeGroups.length) errors.push('No Spoke Gateway Groups found');
+      if(!newBios.length)        errors.push('No Business Intent Overlays found');
+      if(errors.length) {
+        alert('Import issues:\n' + errors.join('\n') + '\n\nPlease check this is a valid export file.');
+        return;
+      }
+
+      // ---- Apply to state ----
+      S.labels      = newLabels;
+      S.hubGroups   = newHubGroups;
+      S.spokeGroups = newSpokeGroups;
+      S.bios        = newBios;
+      S.nextId      = idCounter + 10;
+      document.getElementById('sse').value = newSSE;
+
+      // Re-render everything
+      renderLabels(); // triggers renderHubGroups, renderSpokeGroups, renderBios, calc
+
+      // Brief success flash on the import button
+      const btn = document.querySelector('.btn-ghost[onclick*="import-file"]');
+      if(btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✓ Imported';
+        btn.style.color = 'var(--green)';
+        btn.style.borderColor = 'var(--green)';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+      }
+
+    } catch(err) {
+      console.error('Import error:', err);
+      alert('Failed to parse the file. Make sure this is an XLSX exported by the EdgeConnect Tunnel Calculator.\n\nError: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+
 function exportXLSX() {
   const devices = calcAll();
   const wb = XLSX.utils.book_new();
@@ -1342,7 +1535,7 @@ function exportXLSX() {
   const cfg = [
     ['HPE Aruba Networking — EdgeConnect SD-WAN Tunnel Estimation Report'],
     ['Generated:', new Date().toLocaleString()],
-    ['Tool Version:', 'v4.2 — Underlay · Overlay · Passthrough'],
+    ['Tool Version:', 'v4.4 — Underlay · Overlay · Passthrough'],
     [],
     ['WAN LABELS'],
     ['Name','Overlay Topology','CC Group'],
