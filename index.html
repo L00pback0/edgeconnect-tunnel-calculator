@@ -305,7 +305,7 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
     <h1>EdgeConnect SD-WAN Tunnel Estimator</h1>
     <p>HPE Aruba Networking — Underlay · Overlay · Passthrough</p>
   </div>
-  <div class="vpill">v4.5</div>
+  <div class="vpill">v4.7</div>
 </header>
 
 <div class="layout">
@@ -470,10 +470,14 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
         <thead><tr><th>Model</th><th>Role</th><th>Max Tunnels</th></tr></thead>
         <tbody>
           <tr><td class="mono">EC-US</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">2,000</td></tr>
+          <tr><td class="mono">EC-10104</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
+          <tr><td class="mono">EC-10106</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
+          <tr><td class="mono">EC-10108</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
           <tr><td class="mono">EC-XS (9.2+)</td><td style="color:var(--txm)">Small Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
           <tr><td class="mono">EC-S-P</td><td style="color:var(--txm)">Large Branch</td><td class="mono" style="color:var(--txm)">5,000</td></tr>
           <tr><td class="mono">EC-M-H</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
           <tr><td class="mono">EC-L-H</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
+          <tr><td class="mono">EC-10150</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
           <tr><td class="mono">EC-XL-H</td><td style="color:var(--blue)">Hub / DC</td><td class="mono" style="color:var(--blue);font-weight:600">10,000</td></tr>
         </tbody>
       </table>
@@ -1642,10 +1646,14 @@ function exportXLSX() {
     ['DEVICE CAPACITY'],
     ['Model','Role','Max Tunnels'],
     ['EC-US','Small Branch','2,000'],
+    ['EC-10104','Small Branch','5,000'],
+    ['EC-10106','Small Branch','5,000'],
+    ['EC-10108','Small Branch','5,000'],
     ['EC-XS (9.2+)','Small Branch','5,000'],
     ['EC-S-P','Large Branch','5,000'],
     ['EC-M-H','Hub / DC','10,000'],
     ['EC-L-H','Hub / DC','10,000'],
+    ['EC-10150','Hub / DC','10,000'],
     ['EC-XL-H','Hub / DC','10,000'],
   ];
   const ws4 = XLSX.utils.aoa_to_sheet(ref);
