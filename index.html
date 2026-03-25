@@ -293,6 +293,20 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
 .ha-mode-btn:hover{color:var(--tx);border-color:var(--bdr2)}
 .ha-mode-btn.ha-mode-on{background:var(--odim);border-color:var(--obdr);color:var(--orange);font-weight:600}
 
+/* DIAGRAM */
+.diagram-section{max-width:1480px;margin:0 auto;padding:0 24px 24px}
+.diagram-card{background:var(--s1);border:1px solid var(--bdr);border-radius:10px;overflow:hidden}
+.diagram-head{background:var(--s2);border-bottom:1px solid var(--bdr);padding:11px 18px;
+  display:flex;align-items:center;gap:10px}
+.diagram-head-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--txm)}
+.diagram-wrap{overflow-x:auto;padding:24px;background:var(--bg)}
+.diagram-wrap svg{display:block;margin:0 auto}
+.diag-btn{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:5px;
+  font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--bdr2);
+  background:var(--s3);color:var(--txm);transition:all .15s;font-family:'IBM Plex Sans',sans-serif}
+.diag-btn:hover{color:var(--tx)}
+.diag-btn.on{background:var(--odim);border-color:var(--obdr);color:var(--orange)}
+
 @media(max-width:1100px){.layout{grid-template-columns:1fr}.res-col{position:static}}
 @media(max-width:600px){.layout{padding:12px}.hdr{padding:10px 16px}}
 </style>
@@ -305,7 +319,7 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
     <h1>EdgeConnect SD-WAN Tunnel Estimator</h1>
     <p>HPE Aruba Networking — Underlay · Overlay · Passthrough</p>
   </div>
-  <div class="vpill">v4.7</div>
+  <div class="vpill">v5.0</div>
 </header>
 
 <div class="layout">
@@ -494,6 +508,24 @@ details.bkd[open] summary::before{transform:rotate(90deg)}
 
 </div><!-- /res-col -->
 </div><!-- /layout -->
+
+<!-- DIAGRAM SECTION -->
+<div class="diagram-section" id="diagram-section">
+  <div class="diagram-card">
+    <div class="diagram-head">
+      <span style="font-size:15px">⬡</span>
+      <span class="diagram-head-title">Fabric Topology Diagram</span>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div id="diagram-legend"></div>
+        <button class="diag-btn" onclick="exportDiagram('png')">⬇ PNG</button>
+        <button class="diag-btn" onclick="exportDiagram('jpeg')">⬇ JPEG</button>
+      </div>
+    </div>
+    <div class="diagram-wrap">
+      <svg id="diagram-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -1334,6 +1366,7 @@ function renderResults(devices) {
 function calc() {
   const devices = calcAll();
   renderResults(devices);
+  renderDiagram();
   return devices;
 }
 
@@ -1539,7 +1572,7 @@ function exportXLSX() {
   const cfg = [
     ['HPE Aruba Networking — EdgeConnect SD-WAN Tunnel Estimation Report'],
     ['Generated:', new Date().toLocaleString()],
-    ['Tool Version:', 'v4.4 — Underlay · Overlay · Passthrough'],
+    ['Tool Version:', 'v4.9 — Underlay · Overlay · Passthrough'],
     [],
     ['WAN LABELS'],
     ['Name','Overlay Topology','CC Group'],
@@ -1686,6 +1719,191 @@ function resetAll() {
   S.nextId=20;
   document.getElementById('sse').value=0;
   renderLabels();
+}
+
+// ============================================================
+//  DIAGRAM
+// ============================================================
+
+let diagramOpen = true;
+
+function toggleDiagram() {
+  // kept for compatibility but diagram is always visible now
+  renderDiagram();
+}
+
+function exportDiagram(format) {
+  const svg = document.getElementById('diagram-svg');
+  const w   = parseInt(svg.getAttribute('width'));
+  const h   = parseInt(svg.getAttribute('height'));
+
+  // Embed fonts by inlining a @import in a style element inside the SVG clone
+  const clone = svg.cloneNode(true);
+  const style = document.createElementNS('http://www.w3.org/2000/svg','style');
+  style.textContent = `@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');`;
+  clone.insertBefore(style, clone.firstChild);
+
+  const svgStr  = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
+  const url     = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  img.onload = function() {
+    const canvas  = document.createElement('canvas');
+    const scale   = 2; // 2× for retina-quality output
+    canvas.width  = w * scale;
+    canvas.height = h * scale;
+    const ctx     = canvas.getContext('2d');
+
+    // Fill background (needed for JPEG which has no transparency)
+    ctx.fillStyle = '#0C1520';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+
+    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const ext  = format === 'jpeg' ? 'jpg' : 'png';
+    const data = canvas.toDataURL(mime, 0.95);
+
+    const a = document.createElement('a');
+    a.href     = data;
+    a.download = `EdgeConnect_Fabric_Diagram.${ext}`;
+    a.click();
+  };
+  img.src = url;
+}
+
+
+function renderDiagram() {
+
+  const devices      = calcAll();
+  const spokeDevices = devices.filter(d => d.role === 'spoke');
+  const hubDevices   = devices.filter(d => d.role === 'hub');
+
+  const NODE_W  = 165, NODE_H  = 100, H_GAP   = 20;
+  const BIO_W   = 155, BIO_H   = 112, BIO_GAP = 18;
+  const SVG_PAD = 40;
+  const SPOKE_Y = 50;
+  const BIO_Y   = SPOKE_Y + NODE_H + 44;
+  const HUB_Y   = BIO_Y + BIO_H + 44;
+  const SVG_H   = HUB_Y + NODE_H + SVG_PAD;
+
+  const maxCols = Math.max(spokeDevices.length, hubDevices.length, S.bios.length);
+  const SVG_W   = Math.max(900, maxCols * (NODE_W + H_GAP) + SVG_PAD * 2);
+
+  function rowPos(items, w, gap, y) {
+    const total = items.length * w + Math.max(0, items.length - 1) * gap;
+    const sx    = (SVG_W - total) / 2;
+    return items.map((item, i) => ({
+      ...item,
+      x: sx + i * (w + gap), y,
+      cx: sx + i * (w + gap) + w / 2,
+      cy: y + (item._bh || NODE_H) / 2,
+      w, h: item._bh || NODE_H,
+    }));
+  }
+
+  const spokeNodes = rowPos(spokeDevices, NODE_W, H_GAP, SPOKE_Y);
+  const hubNodes   = rowPos(hubDevices,   NODE_W, H_GAP, HUB_Y);
+  const bioNodes   = rowPos(S.bios.map(b=>({...b, _bh:BIO_H})), BIO_W, BIO_GAP, BIO_Y);
+  const BIO_COLORS = ['#4DB8FF','#FF8300','#00D4A0','#C47AFF','#FF5252','#FFD600','#FF6B9D'];
+
+  // Dot grid
+  const dots = [];
+  for(let gx=20;gx<SVG_W;gx+=28)
+    for(let gy=20;gy<SVG_H;gy+=28)
+      dots.push(`<circle cx="${gx}" cy="${gy}" r="1" fill="#1E2F42"/>`);
+
+  // Tier dividers + labels
+  const dv1 = SPOKE_Y + NODE_H + 22, dv2 = BIO_Y + BIO_H + 22;
+  const dividers = [
+    `<line x1="${SVG_PAD}" y1="${dv1}" x2="${SVG_W-SVG_PAD}" y2="${dv1}" stroke="#243142" stroke-width="1" stroke-dasharray="4,4"/>`,
+    `<text x="${SVG_PAD+8}" y="${dv1-6}" font-family="IBM Plex Sans,sans-serif" font-size="8" font-weight="700" letter-spacing="0.8" fill="#3A5470">SPOKE GROUPS</text>`,
+    `<line x1="${SVG_PAD}" y1="${dv2}" x2="${SVG_W-SVG_PAD}" y2="${dv2}" stroke="#243142" stroke-width="1" stroke-dasharray="4,4"/>`,
+    `<text x="${SVG_PAD+8}" y="${dv1+14}" font-family="IBM Plex Sans,sans-serif" font-size="8" font-weight="700" letter-spacing="0.8" fill="#3A5470">BUSINESS INTENT OVERLAYS</text>`,
+    `<text x="${SVG_PAD+8}" y="${dv2+14}" font-family="IBM Plex Sans,sans-serif" font-size="8" font-weight="700" letter-spacing="0.8" fill="#3A5470">HUB GROUPS</text>`,
+  ];
+
+  function drawGatewayNode(n) {
+    const isHub=n.role==='hub', bc=isHub?'#4DB8FF':'#FF8300';
+    const rl=isHub?'HUB GROUP':'SPOKE GROUP';
+    const pct=Math.min(100,(n.total/n.cap)*100);
+    const tc=n.total>n.cap?'#FF5252':n.total>n.cap*.8?'#FFB800':'#00D4A0';
+    const lblStr=(n.labelIds||[]).map(id=>S.labels.find(l=>l.id===id)?.name||'?').join(' · ');
+    const nm=n.name.length>20?n.name.slice(0,18)+'…':n.name;
+    const ha=HA_MODES.find(m=>m.val===n.haMode)?.short||'';
+    const sub=`${n.sites} site${n.sites!==1?'s':''}  ·  ${ha}`;
+    const bw=NODE_W-24, bf=Math.max(2,bw*pct/100);
+    return [
+      `<rect x="${n.x+2}" y="${n.y+3}" width="${NODE_W}" height="${NODE_H}" rx="9" fill="rgba(0,0,0,.35)"/>`,
+      `<rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="${NODE_H}" rx="9" fill="#111E2D" stroke="${bc}" stroke-width="1.5"/>`,
+      `<rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="4" rx="9" fill="${bc}" opacity=".6"/>`,
+      `<rect x="${n.x}" y="${n.y+2}" width="${NODE_W}" height="4" fill="${bc}" opacity=".6"/>`,
+      `<text x="${n.cx}" y="${n.y+17}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="8" font-weight="700" letter-spacing=".8" fill="${bc}" opacity=".9">${rl}</text>`,
+      `<text x="${n.cx}" y="${n.y+31}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="12" font-weight="600" fill="#D8E8F4">${escSvg(nm)}</text>`,
+      `<text x="${n.cx}" y="${n.y+44}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9" fill="#6E8EA6">${escSvg(sub)}</text>`,
+      `<text x="${n.cx}" y="${n.y+56}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#3A5470">${escSvg(lblStr)}</text>`,
+      `<text x="${n.cx}" y="${n.y+72}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="600" fill="${tc}">${n.total.toLocaleString()}</text>`,
+      `<rect x="${n.x+12}" y="${n.y+NODE_H-10}" width="${bw}" height="3" rx="2" fill="#253648"/>`,
+      `<rect x="${n.x+12}" y="${n.y+NODE_H-10}" width="${bf}" height="3" rx="2" fill="${tc}"/>`,
+      `<text x="${n.cx}" y="${n.y+NODE_H-2}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="${tc}" opacity=".8">${pct.toFixed(1)}% util</text>`,
+    ].join('');
+  }
+
+  function drawTopoIcon(cx, cy, isMesh, color) {
+    const R=18, r=3.5, o=[];
+    if(isMesh) {
+      const pts=Array.from({length:5},(_,i)=>{const a=i*2*Math.PI/5-Math.PI/2;return[cx+R*Math.cos(a),cy+R*Math.sin(a)];});
+      for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++)
+        o.push(`<line x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="${color}" stroke-width="1" stroke-opacity=".5"/>`);
+      pts.forEach(([px,py])=>o.push(`<circle cx="${px}" cy="${py}" r="${r}" fill="${color}" opacity=".9"/>`));
+    } else {
+      const sp=Array.from({length:4},(_,i)=>{const a=i*2*Math.PI/4-Math.PI/4;return[cx+R*Math.cos(a),cy+R*Math.sin(a)];});
+      sp.forEach(([px,py])=>o.push(`<line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="${color}" stroke-width="1" stroke-opacity=".5"/>`));
+      o.push(`<circle cx="${cx}" cy="${cy}" r="${r+1.5}" fill="${color}" opacity=".95"/>`);
+      sp.forEach(([px,py])=>o.push(`<circle cx="${px}" cy="${py}" r="${r}" fill="${color}" opacity=".85"/>`));
+    }
+    return o.join('');
+  }
+
+  function drawBioCard(b, bi) {
+    const color=BIO_COLORS[bi%BIO_COLORS.length], isMesh=b.topo==='mesh';
+    const nm=b.name.length>16?b.name.slice(0,15)+'…':b.name;
+    const lblNames=b.labelIds.map(id=>S.labels.find(l=>l.id===id)?.name||'?');
+    const l1=lblNames.slice(0,3).join(' · '), l2=lblNames.slice(3).join(' · ');
+    const icx=b.x+BIO_W-34, icy=b.y+BIO_H/2+6;
+    return [
+      `<rect x="${b.x+2}" y="${b.y+3}" width="${BIO_W}" height="${BIO_H}" rx="9" fill="rgba(0,0,0,.35)"/>`,
+      `<rect x="${b.x}" y="${b.y}" width="${BIO_W}" height="${BIO_H}" rx="9" fill="#111E2D" stroke="${color}" stroke-width="1.5" stroke-opacity=".7"/>`,
+      `<rect x="${b.x}" y="${b.y}" width="${BIO_W}" height="4" rx="9" fill="${color}" opacity=".5"/>`,
+      `<rect x="${b.x}" y="${b.y+2}" width="${BIO_W}" height="4" fill="${color}" opacity=".5"/>`,
+      `<text x="${b.x+10}" y="${b.y+17}" font-family="IBM Plex Sans,sans-serif" font-size="8" font-weight="700" letter-spacing=".8" fill="${color}" opacity=".8">OVERLAY</text>`,
+      `<rect x="${b.x+BIO_W-58}" y="${b.y+8}" width="52" height="13" rx="4" fill="${color}" opacity=".15"/>`,
+      `<text x="${b.x+BIO_W-32}" y="${b.y+18}" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="7.5" font-weight="700" letter-spacing=".5" fill="${color}">${isMesh?'MESH':'HUB-SPOKE'}</text>`,
+      `<text x="${b.x+10}" y="${b.y+33}" font-family="IBM Plex Sans,sans-serif" font-size="13" font-weight="600" fill="#D8E8F4">${escSvg(nm)}</text>`,
+      `<text x="${b.x+10}" y="${b.y+48}" font-family="IBM Plex Mono,monospace" font-size="8" fill="#3A5470">${escSvg(l1)}</text>`,
+      l2?`<text x="${b.x+10}" y="${b.y+59}" font-family="IBM Plex Mono,monospace" font-size="8" fill="#3A5470">${escSvg(l2)}</text>`:'',
+      drawTopoIcon(icx,icy,isMesh,color),
+    ].join('');
+  }
+
+  const svg=document.getElementById('diagram-svg');
+  svg.setAttribute('width',SVG_W);
+  svg.setAttribute('height',SVG_H);
+  svg.setAttribute('viewBox',`0 0 ${SVG_W} ${SVG_H}`);
+  svg.innerHTML=
+    `<rect width="${SVG_W}" height="${SVG_H}" fill="#0C1520"/>`+
+    dots.join('')+dividers.join('')+
+    spokeNodes.map(drawGatewayNode).join('')+
+    bioNodes.map((b,bi)=>drawBioCard(b,bi)).join('')+
+    hubNodes.map(drawGatewayNode).join('');
+
+  document.getElementById('diagram-legend').innerHTML='';
+}
+
+function escSvg(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ============================================================
