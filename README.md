@@ -3,7 +3,7 @@
 > **A precision tunnel budget estimator for HPE Aruba Networking EdgeConnect SD-WAN deployments**
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-orange?style=for-the-badge&logo=github)](https://l00pback0.github.io/edgeconnect-tunnel-calculator)
-[![Version](https://img.shields.io/badge/Version-4.3-blue?style=for-the-badge)]()
+[![Version](https://img.shields.io/badge/Version-5.0-blue?style=for-the-badge)]()
 [![HTML](https://img.shields.io/badge/Built%20With-HTML%2FJS-informational?style=for-the-badge&logo=html5)]()
 [![No Dependencies](https://img.shields.io/badge/Dependencies-None-brightgreen?style=for-the-badge)]()
 
